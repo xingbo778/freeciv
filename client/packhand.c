@@ -1180,6 +1180,12 @@ void handle_city_short_info(const struct packet_city_short_info *packet)
   fc_assert_ret_msg(NULL != powner, "Bad player number %d.", packet->owner);
   fc_assert_ret_msg(NULL != pcenter, "Invalid tile index %d.", packet->tile);
 
+  if (packet->original >= 0) {
+    original = player_by_number(packet->original);
+  } else {
+    original = NULL;
+  }
+
   if (NULL != pcity) {
     ptile = city_tile(pcity);
 
@@ -1190,7 +1196,7 @@ void handle_city_short_info(const struct packet_city_short_info *packet)
 
       pcity->tile = pcenter;
       pcity->owner = powner;
-      pcity->original = NULL;
+      pcity->original = original;
 
       whole_map_iterate(&(wld.map), wtile) {
         if (wtile->worked == pcity) {
@@ -1224,6 +1230,7 @@ void handle_city_short_info(const struct packet_city_short_info *packet)
     city_is_new = TRUE;
     pcity = create_city_virtual(powner, pcenter, packet->name);
     pcity->id = packet->id;
+    pcity->original = original;
     city_map_radius_sq_set(pcity, radius_sq);
     idex_register_city(&wld, pcity);
   } else if (pcity->id != packet->id) {
