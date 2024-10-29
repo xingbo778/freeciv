@@ -1452,7 +1452,8 @@ struct action_enabler *action_enabler_new(void)
   struct action_enabler *enabler;
 
   enabler = fc_malloc(sizeof(*enabler));
-  enabler->ruledit_disabled = FALSE;
+  enabler->rulesave.ruledit_disabled = FALSE;
+  enabler->rulesave.comment = nullptr;
   requirement_vector_init(&enabler->actor_reqs);
   requirement_vector_init(&enabler->target_reqs);
 
@@ -1468,6 +1469,10 @@ struct action_enabler *action_enabler_new(void)
 **************************************************************************/
 void action_enabler_free(struct action_enabler *enabler)
 {
+  if (enabler->rulesave.comment != nullptr) {
+    free(enabler->rulesave.comment);
+  }
+
   requirement_vector_free(&enabler->actor_reqs);
   requirement_vector_free(&enabler->target_reqs);
 
