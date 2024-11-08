@@ -3007,6 +3007,67 @@ static void compat_load_dev(struct loaddata *loading)
   if (game_version < 3029300) {
     /* Before version number bump to 3.2.93, May 2025 */
 
+    {
+      int action_count;
+
+      action_count = secfile_lookup_int_default(loading->file, 0,
+                                                "savefile.action_size");
+
+      if (action_count > 0) {
+        const char **modname;
+        const char **savemod;
+        int j;
+        const char *cc1_name = "Conquer City Shrink";
+        const char *cc2_name = "Conquer City Shrink 2";
+        const char *cc3_name = "Conquer City Shrink 3";
+        const char *cc4_name = "Conquer City Shrink 4";
+
+        modname = secfile_lookup_str_vec(loading->file, &loading->action.size,
+                                         "savefile.action_vector");
+
+        savemod = fc_calloc(action_count, sizeof(*savemod));
+
+        for (j = 0; j < action_count; j++) {
+          if (!fc_strcasecmp("Conquer City", modname[j])) {
+            savemod[j] = cc1_name;
+          } else if (!fc_strcasecmp("Conquer City 2", modname[j])) {
+            savemod[j] = cc2_name;
+          } else if (!fc_strcasecmp("Conquer City 3", modname[j])) {
+            savemod[j] = cc3_name;
+          } else if (!fc_strcasecmp("Conquer City 4", modname[j])) {
+            savemod[j] = cc4_name;
+          } else {
+            savemod[j] = modname[j];
+          }
+        }
+
+        secfile_replace_str_vec(loading->file, savemod, action_count,
+                                "savefile.action_vector");
+
+        free(savemod);
+      }
+    }
+
+    player_slots_iterate(pslot) {
+      int plrno = player_slot_index(pslot);
+      int ncities;
+      int cnro;
+
+      if (secfile_section_lookup(loading->file, "player%d", plrno) == NULL) {
+        continue;
+      }
+
+      ncities = secfile_lookup_int_default(loading->file, 0,
+                                           "player%d.dc_total", plrno);
+
+      for (cnro = 0; cnro < ncities; cnro++) {
+        if (!secfile_entry_lookup(loading->file, "player%d.dc%d.original",
+                                  plrno, cnro)) {
+          secfile_insert_int(loading->file, -1, "player%d.dc%d.original",
+                             plrno, cnro);
+        }
+      }
+    } player_slots_iterate_end;
   } /* Version < 3.2.93 */
 
   if (game_version < 3029400) {
