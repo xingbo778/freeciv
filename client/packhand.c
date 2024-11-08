@@ -1170,6 +1170,7 @@ void handle_city_short_info(const struct packet_city_short_info *packet)
   struct tile *ptile = NULL;
   struct tile_list *worked_tiles = NULL;
   struct player *powner = player_by_number(packet->owner);
+  struct player *original = player_by_number(packet->original);
   int radius_sq = game.info.init_city_radius_sq;
 
   fc_assert_ret_msg(NULL != powner, "Bad player number %d.", packet->owner);

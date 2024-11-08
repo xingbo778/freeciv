@@ -2184,6 +2184,12 @@ static void package_dumb_city(struct player *pplayer, struct tile *ptile,
   packet->id = pdcity->identity;
   packet->owner = player_number(vision_site_owner(pdcity));
 
+  if (pdcity->original != NULL) {
+    packet->original = player_number(pdcity->original);
+  } else {
+    packet->original = MAX_NUM_PLAYER_SLOTS;
+  }
+
   packet->tile = tile_index(ptile);
   if (pdcity->name == nullptr) {
     packet->name[0] = '\0';
