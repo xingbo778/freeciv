@@ -3155,7 +3155,7 @@ static inline void city_support(const struct civ_map *nmap,
           if (sel_count < max_mart_units) {
             best_units[sel_count++] = current;
           } else if (current > best_units[max_mart_units - 1]) {
-            for (i = max_mart_units - 1; i >= 0 && current > best_units[i]; i++) {
+            for (i = max_mart_units - 1; i >= 0 && current > best_units[i]; i--) {
               if (i + 1 < max_mart_units) {
                 best_units[i + 1] = best_units[i];
               }
