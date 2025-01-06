@@ -2012,7 +2012,8 @@ struct adv_choice *military_advisor_choose_build(struct ai_type *ait,
   }
 
   /* Consider making an airplane */
-  (void) dai_choose_attacker_air(ait, pplayer, pcity, choice, allow_gold_upkeep);
+  (void) dai_choose_attacker_air(ait, nmap, pplayer, pcity, choice,
+                                 allow_gold_upkeep);
 
   /* Consider making a paratrooper */
   dai_choose_paratrooper(ait, nmap, pplayer, pcity, choice, allow_gold_upkeep);
