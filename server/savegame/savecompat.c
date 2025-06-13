@@ -25,6 +25,7 @@
 
 /* server */
 #include "aiiface.h"
+#include "plrhand.h"
 #include "setcompat.h"
 #include "settings.h"
 #include "unittools.h"
@@ -83,6 +84,8 @@ static void compat_load_030200(struct loaddata *loading, enum sgf_version format
 static void compat_load_030300(struct loaddata *loading, enum sgf_version format_class);
 static void compat_post_load_030100(struct loaddata *loading,
                                     enum sgf_version format_class);
+static void compat_post_load_030300(struct loaddata *loading,
+                                    enum sgf_version format_class);
 
 #ifdef FREECIV_DEV_SAVE_COMPAT
 static void compat_load_dev(struct loaddata *loading);
@@ -129,7 +132,7 @@ static struct compatibility compat[] = {
   /* version 51 to 59 are reserved for possible changes in 3.1.x */
   { 60, compat_load_030200, NULL },
   /* version 61 to 69 are reserved for possible changes in 3.2.x */
-  { 70, compat_load_030300, NULL },
+  { 70, compat_load_030300, compat_post_load_030300 },
   /* Current savefile version is listed above this line; it corresponds to
      the definitions in this file. */
 };
@@ -191,8 +194,8 @@ void sg_load_compat(struct loaddata *loading, enum sgf_version format_class)
   Some compatibility needs access to game state not available in
   sg_load_compat(). Do those here.
 
-  This function is called after a savegame has loaded the game state. The
-  data should be changed in the game state since the game already is done
+  This function is called after a savegame has loaded the game state.
+  The data should be changed in the game state since the game already is done
   loading. Prefer using sg_load_compat() when possible.
 ****************************************************************************/
 void sg_load_post_load_compat(struct loaddata *loading,
@@ -2582,6 +2585,38 @@ static void compat_load_030300(struct loaddata *loading,
       secfile_entry_ignore(loading->file, "research.r%d.techs", i);
     }
   }
+
+  player_slots_iterate(pslot) {
+    int plrno = player_slot_index(pslot);
+    int ncities;
+    int cnro;
+
+    if (secfile_section_lookup(loading->file, "player%d", plrno) == NULL) {
+      continue;
+    }
+
+    ncities = secfile_lookup_int_default(loading->file, 0,
+                                         "player%d.dc_total", plrno);
+
+    for (cnro = 0; cnro < ncities; cnro++) {
+      secfile_insert_int(loading->file, -1, "player%d.dc%d.original",
+                         plrno, cnro);
+    }
+  } player_slots_iterate_end;
+}
+
+/************************************************************************//**
+  Update loaded game data from 3.3.x to something usable by 3.3.0.
+****************************************************************************/
+static void compat_post_load_030300(struct loaddata *loading,
+                                    enum sgf_version format_class)
+{
+  /* Check status and return if not OK (sg_success FALSE). */
+  sg_check_ret();
+
+  players_iterate_alive(pplayer) {
+    update_capital(pplayer);
+  } players_iterate_alive_end;
 }
 
 /************************************************************************//**
