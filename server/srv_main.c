@@ -1812,7 +1812,6 @@ static void end_turn(void)
   update_diplomatics();
   make_history_report();
   settings_turn();
-  stdinhand_turn();
   voting_turn();
   send_city_turn_notifications(NULL);
 
