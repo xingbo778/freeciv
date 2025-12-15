@@ -1751,6 +1751,10 @@ static void end_turn(void)
           && can_extra_disappear(pextra, ptile)) {
         tile_extra_rm_apply(ptile, pextra);
 
+        script_server_signal_emit("spontaneous_extra",
+                                  extra_rule_name(pextra),
+                                  ptile, FALSE);
+
         update_tile_knowledge(ptile);
 
         if (tile_owner(ptile) != NULL) {
@@ -1778,6 +1782,10 @@ static void end_turn(void)
           && can_extra_appear(pextra, ptile)) {
 
         tile_extra_apply(ptile, pextra);
+
+        script_server_signal_emit("spontaneous_extra",
+                                  extra_rule_name(pextra),
+                                  ptile, TRUE);
 
         update_tile_knowledge(ptile);
 
