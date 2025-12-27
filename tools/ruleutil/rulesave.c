@@ -1856,10 +1856,11 @@ static bool save_game_ruleset(const char *filename, const char *name)
     save_default_int(sfile, pcounter->def, 0, path, "def");
     save_default_int(sfile, pcounter->checkpoint, 0, path, "checkpoint");
 
-    secfile_insert_str(sfile, counter_behaviour_name(pcounter->type), "%s.type", path);
-    if ((NULL != pcounter->helptext)
-        && (0 < strvec_size(pcounter->helptext))) {
-      save_strvec(sfile, pcounter->helptext, "%s.helptext", path);
+    secfile_insert_str(sfile, counter_behavior_name(pcounter->type), "%s.type", path);
+
+    if (pcounter->helptext != NULL
+        && strvec_size(pcounter->helptext) > 0) {
+      save_strvec(sfile, pcounter->helptext, path, "helptext");
     }
 
   } counters_re_iterate_end;
