@@ -4492,8 +4492,7 @@ rulesets = [
   'civ1',
   'civ2',
   'granularity',
-  'stub',
-  'webperimental'
+  'stub'
   ]
 
 ruleset_files = [
@@ -4522,7 +4521,6 @@ install_data(
   'data/civ1.modpack',
   'data/civ2.modpack',
   'data/granularity.modpack',
-  'data/webperimental.modpack',
   install_dir : join_paths(get_option('datadir'), 'freeciv')
   )
 
@@ -4559,11 +4557,6 @@ install_data(
 install_data(
   'data/granularity/README.granularity',
   install_dir : join_paths(get_option('datadir'), 'freeciv/granularity')
-  )
-
-install_data(
-  'data/webperimental/README.webperimental',
-  install_dir : join_paths(get_option('datadir'), 'freeciv/webperimental')
   )
 
 install_data(
