@@ -74,7 +74,7 @@ const struct ft_color ftc_any           = FT_COLOR(nullptr,        nullptr);
 
 const struct ft_color ftc_warning       = FT_COLOR("#FF0000",   nullptr);
 const struct ft_color ftc_log           = FT_COLOR("#7F7F7F",   nullptr);
-const struct ft_color ftc_server        = FT_COLOR("#8B0000",   nullptr);
+const struct ft_color ftc_server        = FT_COLOR("#FFFFFF",   nullptr);
 const struct ft_color ftc_client        = FT_COLOR("#EF7F00",   nullptr);
 const struct ft_color ftc_editor        = FT_COLOR("#0000FF",   nullptr);
 const struct ft_color ftc_command       = FT_COLOR("#006400",   nullptr);
@@ -83,7 +83,7 @@ const struct ft_color ftc_server_prompt = FT_COLOR("#FF0000",   "#BEBEBE");
 const struct ft_color ftc_player_lost   = FT_COLOR("#FFFFFF",   "#000000");
 const struct ft_color ftc_game_start    = FT_COLOR("#00FF00",   "#115511");
 
-const struct ft_color ftc_chat_public   = FT_COLOR("#00008B",   nullptr);
+const struct ft_color ftc_chat_public   = FT_COLOR("#FFFFFF",   nullptr);
 const struct ft_color ftc_chat_ally     = FT_COLOR("#551166",   nullptr);
 const struct ft_color ftc_chat_private  = FT_COLOR("#A020F0",   nullptr);
 const struct ft_color ftc_chat_luaconsole = FT_COLOR("#006400", nullptr);
@@ -1077,10 +1077,9 @@ const char *city_link(const struct city *pcity)
 {
   static char buf[MAX_LEN_LINK];
 
-  fc_snprintf(buf, sizeof(buf), "%c%s tgt=\"%s\" id=%d name=\"%s\" %c%c",
-              SEQ_START, text_tag_type_short_name(TTT_LINK),
-              text_link_type_name(TLT_CITY), pcity->id,
-              city_name_get(pcity), SEQ_END, SEQ_STOP);
+  fc_snprintf(buf, sizeof(buf), "<a href=\"#\" onclick=\"show_city_dialog_by_id(%d);\">%s</a>",
+              pcity->id,
+              city_name_get(pcity));
   return buf;
 }
 
@@ -1127,10 +1126,8 @@ const char *unit_link(const struct unit *punit)
 {
   static char buf[MAX_LEN_LINK];
 
-  fc_snprintf(buf, sizeof(buf), "%c%s tgt=\"%s\" id=%d name=\"%s\" %c%c",
-              SEQ_START, text_tag_type_short_name(TTT_LINK),
-              text_link_type_name(TLT_UNIT), punit->id,
-              unit_name_translation(punit), SEQ_END, SEQ_STOP);
+  fc_snprintf(buf, sizeof(buf), "%s", unit_name_translation(punit));
+
   return buf;
 }
 
