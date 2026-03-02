@@ -4493,7 +4493,8 @@ rulesets = [
   'civ2',
   'granularity',
   'stub',
-  'webperimental'
+  'webperimental',
+  'xbworld'
   ]
 
 ruleset_files = [
@@ -4523,6 +4524,7 @@ install_data(
   'data/civ2.modpack',
   'data/granularity.modpack',
   'data/webperimental.modpack',
+  'data/xbworld.modpack',
   install_dir : join_paths(get_option('datadir'), 'freeciv')
   )
 
@@ -4564,6 +4566,11 @@ install_data(
 install_data(
   'data/webperimental/README.webperimental',
   install_dir : join_paths(get_option('datadir'), 'freeciv/webperimental')
+  )
+
+install_data(
+  'data/xbworld/README.xbworld',
+  install_dir : join_paths(get_option('datadir'), 'freeciv/xbworld')
   )
 
 install_data(

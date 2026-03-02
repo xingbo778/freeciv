@@ -1,0 +1,12 @@
+
+[datafile]
+options = "+Freeciv-modpack-3.3-Devel-2024.Apr.14"
+
+[modpack]
+name = "xbworld"
+
+[components]
+ruleset = TRUE
+
+[ruleset]
+rulesetdir = "xbworld"
