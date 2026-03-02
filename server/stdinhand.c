@@ -3985,6 +3985,9 @@ bool load_command(struct connection *caller, const char *filename, bool check,
     } players_iterate_end;
   } achievements_iterate_end;
 
+  /* Do not translate, as freeciv-web relies on exact string */
+  cmd_reply(CMD_DEFAULT, caller, C_OK, "Load complete");
+
   return TRUE;
 }
 

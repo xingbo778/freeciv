@@ -616,6 +616,10 @@ static bool metamessage_command(struct connection *caller,
   log_deprecation(_("/metamessage command is deprecated. "
                     "Set metamessage setting instead."));
 
+  if (is_longturn() && S_S_RUNNING == server_state()) {
+    return FALSE;
+  }
+
   if (check) {
     return TRUE;
   }
@@ -703,6 +707,10 @@ void toggle_ai_player_direct(struct connection *caller, struct player *pplayer)
 {
   fc_assert_ret(pplayer != NULL);
 
+  if (is_longturn() && S_S_RUNNING == server_state()) {
+    return;
+  }
+
   if (is_human(pplayer)) {
     cmd_reply(CMD_AITOGGLE, caller, C_OK,
 	      _("%s is now under AI control."),
@@ -728,6 +736,10 @@ static bool toggle_ai_command(struct connection *caller, char *arg, bool check)
 {
   enum m_pre_result match_result;
   struct player *pplayer;
+
+  if (is_longturn() && S_S_RUNNING == server_state()) {
+    return FALSE;
+  }
 
   pplayer = player_by_name_prefix(arg, &match_result);
 
