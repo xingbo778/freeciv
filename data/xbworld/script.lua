@@ -51,16 +51,17 @@ function place_map_labels()
   end
 
   -- Decide if a label should be included and, in case it should, where.
-  if random(1, 100) <= 75 then
+  -- Guard against zero counts: random(1, 0) would cause a runtime error.
+  if mountains > 0 and random(1, 100) <= 75 then
     selected_mountain = random(1, mountains)
   end
-  if random(1, 100) <= 75 then
+  if deep_oceans > 0 and random(1, 100) <= 75 then
     selected_ocean = random(1, deep_oceans)
   end
-  if random(1, 100) <= 75 then
+  if deserts > 0 and random(1, 100) <= 75 then
     selected_desert = random(1, deserts)
   end
-  if random(1, 100) <= 75 then
+  if glaciers > 0 and random(1, 100) <= 75 then
     selected_glacier = random(1, glaciers)
   end
 

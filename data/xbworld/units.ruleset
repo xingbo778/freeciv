@@ -15,7 +15,7 @@
 ; then the first unit with this role will be chosen.
 
 [datafile]
-description = "Experimental web-client unit_type data for Freeciv"
+description = "XBWorld unit_type data for Freeciv"
 options = "+Freeciv-ruleset-3.3-Devel-2023.Feb.24 web-compatible"
 format_version = 40
 

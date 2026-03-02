@@ -8,7 +8,7 @@
 ; use your new customized file.
 
 [datafile]
-description = "Experimental web-client nation theme data for Freeciv"
+description = "XBWorld nation theme data for Freeciv"
 options = "+Freeciv-ruleset-3.3-Devel-2023.Feb.24 web-compatible"
 format_version = 40
 

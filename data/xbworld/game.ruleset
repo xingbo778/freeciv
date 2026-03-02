@@ -29,7 +29,7 @@ std_tileset_compat = TRUE
 
 [about]
 ; Ruleset name
-name = _("Webperimental")
+name = _("XBWorld")
 
 ; There`s no separate versioning in rulesets part of main freeciv distribution
 ;version = ""
@@ -42,18 +42,15 @@ name = _("Webperimental")
 
 ; Description of the ruleset
 summary = _("\
-This ruleset has experimental rules that works with the web-client.\
- The differences from classic are listed in full in README.webperimental.\
+XBWorld ruleset for AI-agent games, based on webperimental.\
+ Customizable game mechanics for automated play and experimentation.\
 \n\
-This ruleset is still in development. If playing it makes you think that \
-a rule should change go to the Freeciv-web board at \
-https://forum.freeciv.org/ and tell us in the \
-webperimental ruleset feed back and suggestion thread.\
+See README.xbworld for full details on inherited and custom rules.\
 ")
 
 ; Detailed description
 ; When updating this, update also description_file in [ruledit] section to match
-description = *webperimental/README.webperimental*
+description = *xbworld/README.xbworld*
 
 ; What capabilities ruleset provides for the scenarios.
 ; See doc/README.rulesets for definitions of official capabilities
@@ -289,7 +286,7 @@ low_firepower_combat_bonus = 1
 ; If firepower is already lower than this, it won`t be affected.
 low_firepower_nonnat_bombard = 1
 
-; Percentage of population lost by a city after nuclear attak. If set to
+; Percentage of population lost by a city after nuclear attack. If set to
 ; 100 city is destroyed along with all the units. If set to 0 city does not
 ; lose population. Any value below 50 means the city can never be
 ; destroyed completely using nuclear.
@@ -726,7 +723,7 @@ colorlist =
 ; etc...
 
 [settings]
-; freeciv game settings for the experimental freeciv-web ruleset
+; freeciv game settings for the XBWorld ruleset
 set =
   { "name", "value", "lock"
     "wrap", "WRAPX", FALSE
