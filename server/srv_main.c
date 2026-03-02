@@ -3899,7 +3899,11 @@ static void save_all_map_images(void)
     struct mapdef *pmapdef = mapimg_isvalid(i);
 
     if (pmapdef != NULL) {
-      mapimg_create(pmapdef, FALSE, game.server.save_name,
+      char imgfilename[128];
+
+      fc_snprintf(imgfilename, sizeof(imgfilename), "map-%d", srvarg.port);
+
+      mapimg_create(pmapdef, FALSE, imgfilename,
                     srvarg.saves_pathname);
     } else {
       log_error("%s", mapimg_error());

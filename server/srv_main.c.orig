@@ -3473,6 +3473,15 @@ static void srv_ready(void)
         map_show_all(pplayer);
       } players_iterate_end;
     }
+
+    if (is_longturn()) {
+      players_iterate(pplayer) {
+        if (is_ai(pplayer)) {
+          set_as_human(pplayer);
+          server_player_set_name(pplayer, "New Available Player");
+	}
+      } players_iterate_end;
+    }
   }
 
   if (game.scenario.is_scenario && game.scenario.players) {
@@ -3937,4 +3946,12 @@ static void world_peace_update(void)
     /* Consecutive world peace turns begin *earliest* after this turn, overwrite older claims. */
     game.server.world_peace_start = game.info.turn;
   }
+}
+
+/**********************************************************************//**
+ Is this a LongTurn game?
+**************************************************************************/
+bool is_longturn(void)
+{
+  return (!fc_strcasecmp(game.server.meta_info.type, "longturn"));
 }
