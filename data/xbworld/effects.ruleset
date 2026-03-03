@@ -601,7 +601,7 @@ reqs	=
     }
 
 [effect_martial_law_each_0]
-type    = "Martial_Law_Each"
+type    = "Martial_Law_By_Unit"
 value   = 1
 reqs	=
     { "type",       "name",      "range"
@@ -609,7 +609,7 @@ reqs	=
     }
 
 [effect_martial_law_each_1]
-type    = "Martial_Law_Each"
+type    = "Martial_Law_By_Unit"
 value   = 1
 reqs	=
     { "type",       "name",      "range"
@@ -617,7 +617,7 @@ reqs	=
     }
 
 [effect_martial_law_each_2]
-type    = "Martial_Law_Each"
+type    = "Martial_Law_By_Unit"
 value   = 1
 reqs	=
     { "type",       "name",      "range"
@@ -625,7 +625,7 @@ reqs	=
     }
 
 [effect_martial_law_each_3]
-type    = "Martial_Law_Each"
+type    = "Martial_Law_By_Unit"
 value   = 2
 reqs	=
     { "type",       "name",      "range"
