@@ -39,6 +39,7 @@ extern "C" {
 #define fc_thread      thrd_t
 #define fc_mutex       mtx_t
 #define fc_thread_cond cnd_t
+#define fc_thread_id   thrd_t
 
 #elif defined(FREECIV_HAVE_PTHREAD)
 
@@ -47,12 +48,14 @@ extern "C" {
 #define fc_thread      pthread_t
 #define fc_mutex       pthread_mutex_t
 #define fc_thread_cond pthread_cond_t
+#define fc_thread_id   pthread_t
 
 #elif defined (FREECIV_HAVE_WINTHREADS)
 
 #include <windows.h>
 #define fc_thread      HANDLE *
 #define fc_mutex       HANDLE *
+#define fc_thread_id   DWORD
 
 #ifndef FREECIV_HAVE_THREAD_COND
 #define fc_thread_cond char
@@ -80,6 +83,12 @@ void fc_thread_cond_wait(fc_thread_cond *cond, fc_mutex *mutex);
 void fc_thread_cond_signal(fc_thread_cond *cond);
 
 bool has_thread_cond_impl(void);
+
+fc_thread_id fc_thread_self(void);
+bool fc_threads_equal(fc_thread_id thr1, fc_thread_id thr2);
+
+typedef void (*at_thread_exit_cb)(void);
+bool register_at_thread_exit_callback(at_thread_exit_cb *cb);
 
 #ifdef __cplusplus
 }

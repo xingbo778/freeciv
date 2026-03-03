@@ -22,6 +22,33 @@
 
 #include "fcthread.h"
 
+static at_thread_exit_cb *ate_cb = NULL;
+
+/*******************************************************************//**
+  Register callback to be called at thread exit
+***********************************************************************/
+bool register_at_thread_exit_callback(at_thread_exit_cb *cb)
+{
+  if (ate_cb != NULL) {
+    log_error("Trying to register multiple at_thread_exit callbacks.");
+    return FALSE;
+  }
+
+  ate_cb = cb;
+
+  return TRUE;
+}
+
+/*******************************************************************//**
+  Called at thread exit
+***********************************************************************/
+static void at_thread_exit(void)
+{
+  if (ate_cb != NULL) {
+    (*ate_cb)();
+  }
+}
+
 #ifdef FREECIV_C11_THR
 
 struct fc_thread_wrap_data {
@@ -135,6 +162,22 @@ void fc_thread_cond_wait(fc_thread_cond *cond, fc_mutex *mutex)
 void fc_thread_cond_signal(fc_thread_cond *cond)
 {
   cnd_signal(cond);
+}
+
+/*******************************************************************//**
+  Return the id of the calling thread
+***********************************************************************/
+fc_thread_id fc_thread_self(void)
+{
+  return thrd_current();
+}
+
+/*******************************************************************//**
+  Tell if two threads are the same
+***********************************************************************/
+bool fc_threads_equal(fc_thread_id thr1, fc_thread_id thr2)
+{
+  return thrd_equal(thr1, thr2);
 }
 
 #elif defined(FREECIV_HAVE_PTHREAD)
@@ -267,6 +310,22 @@ void fc_thread_cond_signal(fc_thread_cond *cond)
   pthread_cond_signal(cond);
 }
 
+/*******************************************************************//**
+  Return the id of the calling thread
+***********************************************************************/
+fc_thread_id fc_thread_self(void)
+{
+  return pthread_self();
+}
+
+/*******************************************************************//**
+  Tell if two threads are the same
+***********************************************************************/
+bool fc_threads_equal(fc_thread_id thr1, fc_thread_id thr2)
+{
+  return pthread_equal(thr1, thr2);
+}
+
 #elif defined(FREECIV_HAVE_WINTHREADS)
 
 struct fc_thread_wrap_data {
@@ -356,6 +415,22 @@ void fc_mutex_allocate(fc_mutex *mutex)
 void fc_mutex_release(fc_mutex *mutex)
 {
   ReleaseMutex(*mutex);
+}
+
+/*******************************************************************//**
+  Return the id of the calling thread
+***********************************************************************/
+fc_thread_id fc_thread_self(void)
+{
+  return GetCurrentThreadId();
+}
+
+/*******************************************************************//**
+  Tell if two threads are the same
+***********************************************************************/
+bool fc_threads_equal(fc_thread_id thr1, fc_thread_id thr2)
+{
+  return thr1 == thr2;
 }
 
 /* TODO: Windows thread condition variable support.

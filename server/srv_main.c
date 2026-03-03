@@ -2211,7 +2211,6 @@ bool server_packet_input(struct connection *pconn, void *packet, int type)
       || type == PACKET_CONN_PONG
       || type == PACKET_CLIENT_HEARTBEAT
       || type == PACKET_SAVE_SCENARIO
-      || type == PACKET_SYNC_SERIAL
       || is_client_edit_packet(type)) {
 
     /* Except for PACKET_EDIT_MODE (used to set edit mode), check

@@ -4193,7 +4193,7 @@ static bool city_add_unit(struct player *pplayer, struct unit *punit,
 {
   int amount = unit_pop_value(punit);
   const struct unit_type *act_utype;
-  Specialist_type_id spec_id = DEFAULT_SPECIALIST;
+  /* Specialist assigned to DEFAULT_SPECIALIST for joined units */
   int new_food;
   int savings_pct = city_growth_granary_savings(pcity);
 
@@ -4211,14 +4211,7 @@ static bool city_add_unit(struct player *pplayer, struct unit *punit,
   /* Preserve old food stock, unless granary effect gives us more. */
   pcity->food_stock = MAX(pcity->food_stock, new_food);
 
-  if (is_super_specialist(act_utype->spec_type)) {
-    Specialist_type_id sspec = specialist_index(act_utype->spec_type);
-
-    pcity->specialists[sspec] += amount;
-    spec_id = sspec;
-  } else {
-    pcity->specialists[DEFAULT_SPECIALIST] += amount;
-  }
+  pcity->specialists[DEFAULT_SPECIALIST] += amount;
   citizens_update(pcity, unit_nationality(punit));
   /* Refresh the city data. */
   city_refresh(pcity);

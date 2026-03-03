@@ -788,7 +788,6 @@ static int get_munits(const struct player *pplayer)
   return result;
 }
 
-#if 0
 /**********************************************************************//**
   Number of city building units.
 **************************************************************************/
@@ -797,7 +796,6 @@ static int get_settlers(const struct player *pplayer)
   int result = 0;
 
   if (!game.scenario.prevent_new_cities) {
-    /* Count up settlers */
     unit_list_iterate(pplayer->units, punit) {
       if (unit_can_do_action(punit, ACTION_FOUND_CITY)) {
         result++;
@@ -807,7 +805,6 @@ static int get_settlers(const struct player *pplayer)
 
   return result;
 }
-#endif
 
 /**********************************************************************//**
   Wonder score
@@ -825,7 +822,6 @@ static int get_techout(const struct player *pplayer)
   return pplayer->score.techout;
 }
 
-#if 0
 /**********************************************************************//**
   Literacy score calculated one way. See also get_literacy() to see
   alternative way.
@@ -834,7 +830,6 @@ static int get_literacy2(const struct player *pplayer)
 {
   return pplayer->score.literacy;
 }
-#endif
 
 /**********************************************************************//**
   Spaceship score
@@ -884,7 +879,6 @@ static int get_gold(const struct player *pplayer)
   return pplayer->economic.gold;
 }
 
-#if 0
 /**********************************************************************//**
   Tax rate
 **************************************************************************/
@@ -984,7 +978,6 @@ static int get_corruption(const struct player *pplayer)
 
   return result;
 }
-#endif
 
 /**********************************************************************//**
   Total score

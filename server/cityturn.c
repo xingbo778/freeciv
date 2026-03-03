@@ -986,7 +986,7 @@ static bool city_increase_size(struct city *pcity, bool natural_growth,
    * make new citizens into scientists or taxmen -- Massimo */
 
   if (sid >= 0) {
-    fc_assert_action(is_normal_specialist_id(sid), sid = DEFAULT_SPECIALIST);
+    fc_assert_action(sid >= 0 && sid < specialist_count(), sid = DEFAULT_SPECIALIST);
     pcity->specialists[sid]++;
   } else {
     /* Ignore food if no square can be worked */
@@ -1066,7 +1066,7 @@ bool city_change_size(struct city *pcity, citizens size,
     int id = pcity->id;
 
     /* Increase city size until size reached, or increase fails */
-    while (size > current_size && city_increase_size(pcity, FALSE, sid)) {
+    while (size > current_size && city_increase_size(pcity, FALSE, DEFAULT_SPECIALIST)) {
       /* TODO: This is currently needed only because there's
        *       deprecated script signal "city_growth" emitted.
        *       Check the need after signal has been dropped completely. */
