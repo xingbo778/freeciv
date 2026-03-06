@@ -1,0 +1,42 @@
+XBWorld Ruleset
+===============
+
+Custom ruleset for XBWorld, based on the webperimental ruleset (which
+itself derives from the classic ruleset via fcweb).
+
+This ruleset is designed for AI-agent games and can be freely modified
+to experiment with game mechanics, balance, and new features.
+
+Customization Guide
+-------------------
+
+- techs.ruleset     — Tech tree (add/remove techs, change prerequisites)
+- units.ruleset     — Unit stats (attack, defense, HP, movement, cost)
+- buildings.ruleset — Buildings and wonders (effects, cost, prerequisites)
+- effects.ruleset   — Numeric effects of buildings/governments/techs
+- governments.ruleset — Government types and their bonuses
+- terrain.ruleset   — Terrain types (output, movement cost)
+- game.ruleset      — Global params (start units, victory conditions, turn limit)
+- cities.ruleset    — City parameters (citizens, specialists)
+- nations.ruleset   — Civilizations/nations
+- script.lua        — Lua event scripts (custom triggers, special events)
+
+Inherited from webperimental
+----------------------------
+
+- Diplomat available from Alphabet
+- AI players created with random trait values
+- Spies can steal gold from enemy cities/capitals (needs Banking)
+- Spies can steal parts of other player's world map
+- Explorers can establish embassies once Writing is discovered
+- Cities can be founded within enemy borders during war
+- Zone of Control rules are turned off
+- A player that knows Electricity has no fog of war inside their borders
+- Leader unit in default startunits (losing Leader = losing the game)
+- All units can be airlifted (light from Flight, medium from Advanced
+  Flight, heavy from Fusion Power)
+- Default map generator is Fair Islands (identical start positions)
+- Howitzer and Battleship can bombard (3 tiles range)
+- Alliance has deeper consequences (unit transfer, wonder help, shared
+  bonuses from Sun Tzu, Bach, A. Smith)
+- Default minimum distance between cities is 3
