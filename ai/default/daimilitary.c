@@ -76,7 +76,9 @@
 static unsigned int assess_danger(struct ai_type *ait,
                                   const struct civ_map *nmap,
                                   struct city *pcity,
-                                  player_unit_list_getter ul_cb);
+                                  player_unit_list_getter ul_cb,
+                                  struct player **dangerous,
+                                  int n_dangerous);
 
 static adv_want dai_unit_attack_desirability(struct ai_type *ait,
                                              const struct unit_type *punittype);
@@ -645,11 +647,28 @@ void dai_assess_danger_player(struct ai_type *ait,
                               struct player *pplayer)
 {
   /* Do nothing if game is not running */
-  if (S_S_RUNNING == server_state()) {
-    city_list_iterate(pplayer->cities, pcity) {
-      (void) assess_danger(ait, nmap, pcity, NULL);
-    } city_list_iterate_end;
+  if (S_S_RUNNING != server_state()) {
+    return;
   }
+
+  /* Pre-build the dangerous-player list once for all cities.
+   * adv_is_player_dangerous(pplayer, aplayer) is constant for a given
+   * pplayer across all its cities, so calling it C×P times (once per city
+   * per player) wastes O((C-1)×P) calls.  Build the list in O(P) here and
+   * pass it to assess_danger(), reducing the per-city check to O(D) where
+   * D is the (typically 1–3) number of dangerous players. */
+  struct player *ad_dangerous[player_slot_count()];
+  int ad_n_dangerous = 0;
+
+  players_iterate(aplayer) {
+    if (adv_is_player_dangerous(pplayer, aplayer)) {
+      ad_dangerous[ad_n_dangerous++] = aplayer;
+    }
+  } players_iterate_end;
+
+  city_list_iterate(pplayer->cities, pcity) {
+    (void) assess_danger(ait, nmap, pcity, NULL, ad_dangerous, ad_n_dangerous);
+  } city_list_iterate_end;
 }
 
 /**********************************************************************//**
@@ -709,7 +728,9 @@ static void dai_reevaluate_building(struct city *pcity, adv_want *value,
 static unsigned int assess_danger(struct ai_type *ait,
                                   const struct civ_map *nmap,
                                   struct city *pcity,
-                                  player_unit_list_getter ul_cb)
+                                  player_unit_list_getter ul_cb,
+                                  struct player **dangerous,
+                                  int n_dangerous)
 {
   struct player *pplayer = city_owner(pcity);
   struct tile *ptile = city_tile(pcity);
@@ -823,14 +844,14 @@ static unsigned int assess_danger(struct ai_type *ait,
 
   omnimap = !has_handicap(pplayer, H_MAP);
 
-  /* Check. */
-  players_iterate(aplayer) {
+  /* Check. Iterate only the pre-built dangerous-player list (passed by the
+   * caller, who builds it once before a per-city loop) instead of calling
+   * adv_is_player_dangerous() O(P) times on every city. */
+  for (int _di = 0; _di < n_dangerous; _di++) {
+    struct player *aplayer = dangerous[_di];
     struct pf_reverse_map *pcity_map;
     struct unit_list *units;
 
-    if (!adv_is_player_dangerous(pplayer, aplayer)) {
-      continue;
-    }
     /* Note that we still consider the units of players we are not (yet)
      * at war with. */
 
@@ -941,7 +962,7 @@ static unsigned int assess_danger(struct ai_type *ait,
 
     pf_reverse_map_destroy(pcity_map);
 
-  } players_iterate_end;
+  } /* for _di (dangerous players) */
 
   if (total_danger) {
     /* If any hostile player has any dangerous unit that can in any time
@@ -1803,7 +1824,18 @@ struct adv_choice *military_advisor_choose_build(struct ai_type *ait,
   struct adv_choice *choice = adv_new_choice();
   bool allow_gold_upkeep;
 
-  urgency = assess_danger(ait, nmap, pcity, ul_cb);
+  /* Build dangerous-player list for assess_danger().  Replaces the
+   * players_iterate + adv_is_player_dangerous() scan inside assess_danger()
+   * with a tighter for loop over the (typically 0-3) dangerous players. */
+  struct player *macb_dangerous[player_slot_count()];
+  int macb_n_dangerous = 0;
+  players_iterate(aplayer) {
+    if (adv_is_player_dangerous(pplayer, aplayer)) {
+      macb_dangerous[macb_n_dangerous++] = aplayer;
+    }
+  } players_iterate_end;
+
+  urgency = assess_danger(ait, nmap, pcity, ul_cb, macb_dangerous, macb_n_dangerous);
   /* Changing to quadratic to stop AI from building piles
    * of small units -- Syela */
   /* It has to be AFTER assess_danger() thanks to wallvalue. */
