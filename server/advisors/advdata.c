@@ -468,16 +468,27 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
 
   /*** Diplomacy ***/
 
+  /* Pre-build list of pplayer's war enemies to avoid O(P²) inner iterate.
+   * For each aplayer we only need to check if any of pplayer's enemies is
+   * allied with aplayer — this list is typically 0–3 entries. */
+  int adv_enemy_count = 0;
+  struct player *adv_enemies[player_slot_count()];
+  players_iterate(check_pl) {
+    if (player_diplstate_get(pplayer, check_pl)->type == DS_WAR) {
+      adv_enemies[adv_enemy_count++] = check_pl;
+    }
+  } players_iterate_end;
+
   players_iterate(aplayer) {
     struct adv_dipl *dip = adv_dipl_get(pplayer, aplayer);
 
     dip->allied_with_enemy = FALSE;
-    players_iterate(check_pl) {
-      if (pplayers_allied(aplayer, check_pl)
-          && player_diplstate_get(pplayer, check_pl)->type == DS_WAR) {
+    for (int ei = 0; ei < adv_enemy_count; ei++) {
+      if (pplayers_allied(aplayer, adv_enemies[ei])) {
         dip->allied_with_enemy = TRUE;
+        break;
       }
-    } players_iterate_end;
+    }
   } players_iterate_end;
 
   adv->dipl.spacerace_leader = player_leading_spacerace();
