@@ -373,9 +373,19 @@ bool check_for_game_over(void)
   int winners = 0;
   struct astring str = ASTRING_INIT;
 
-  /* Check for scenario victory; dead players can win if they are on a team
-   * with the winners. */
+  /* Merged: scenario-victory check + candidate/defeated count.
+   * Both passes iterate all players independently (neither reads the
+   * other's output), so one O(P) pass suffices instead of two.
+   * candidates/defeated are computed even in the winner branch — they
+   * are stack variables and the tiny extra arithmetic is negligible
+   * compared to eliminating a full extra O(P) player traversal every turn. */
+  candidates = 0;
+  defeated = 0;
+  victor = nullptr;
+  /* Do not use players_iterate_alive() for candidate counting — dead
+   * players must be counted as defeated to trigger victory detection. */
   players_iterate(pplayer) {
+    /* Scenario-victory / EFT_VICTORY check (dead players can win). */
     if (player_status_check(pplayer, PSTATUS_WINNER)
         || get_player_bonus(pplayer, EFT_VICTORY) > 0) {
       if (winners) {
@@ -390,6 +400,16 @@ bool check_for_game_over(void)
       pplayer->is_winner = TRUE;
       winners++;
     }
+    /* Candidate/defeated count (barbarians excluded). */
+    if (!is_barbarian(pplayer)) {
+      if (pplayer->is_alive
+          && !player_status_check(pplayer, PSTATUS_SURRENDER)) {
+        candidates++;
+        victor = pplayer;
+      } else {
+        defeated++;
+      }
+    }
   } players_iterate_end;
   if (winners) {
     notify_conn(game.est_connections, nullptr, E_GAME_END, ftc_server,
@@ -400,26 +420,6 @@ bool check_for_game_over(void)
     return TRUE;
   }
   astr_free(&str);
-
-  /* Count candidates for the victory. */
-  candidates = 0;
-  defeated = 0;
-  victor = nullptr;
-  /* Do not use player_iterate_alive() here - dead player must be counted as
-   * defeated to end the game with a victory. */
-  players_iterate(pplayer) {
-    if (is_barbarian(pplayer)) {
-      continue;
-    }
-
-    if ((pplayer)->is_alive
-        && !player_status_check((pplayer), PSTATUS_SURRENDER)) {
-      candidates++;
-      victor = pplayer;
-    } else {
-      defeated++;
-    }
-  } players_iterate_end;
 
   if (0 == candidates) {
     notify_conn(game.est_connections, nullptr, E_GAME_END, ftc_server,
