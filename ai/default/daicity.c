@@ -1964,15 +1964,10 @@ void dai_build_adv_init(struct ai_type *ait, struct player *pplayer)
 void dai_build_adv_adjust(struct ai_type *ait, struct player *pplayer,
                           struct city *wonder_city)
 {
-  /* Pre-compute the team-adjusted player count once; passed to
-   * adjust_improvement_wants_by_effects() to avoid an O(P) players_iterate
-   * on every city × improvement combination. */
-  int nplayers = normal_player_count();
-  players_iterate(aplayer) {
-    if (aplayer->team && aplayer->team == pplayer->team && aplayer != pplayer) {
-      nplayers--;
-    }
-  } players_iterate_end;
+  /* adv->stats.nplayers is pre-computed in adv_data_phase_init() as
+   * normal_player_count() minus same-team members — eliminates an O(P)
+   * players_iterate here (and identically in dai_tech_effect_values()). */
+  int nplayers = adv->stats.nplayers;
 
   /* Clear old building wants.
    * Do this separately from the iteration over improvement types

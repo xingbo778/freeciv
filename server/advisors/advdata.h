@@ -96,12 +96,13 @@ struct adv_data {
     int *cities;       /* Number of cities we have on continent */
     int *ocean_cities; /* Number of cities we have on ocean */
     int average_production;
-    /* Per-player scalars cached once per phase for O(1) access inside
-     * dai_effect_value(), which is called O(C×I) times per AI turn.
-     * Avoids three separate O(P) players_iterate loops on every call. */
+    /* Per-player scalars cached once per phase for O(1) access in hot
+     * paths (dai_effect_value() is called O(C×I) times per AI turn,
+     * dai_build_adv_adjust / dai_tech_effect_values each need nplayers). */
     int n_ai;            /* Number of alive AI-controlled players */
     int new_contacts;    /* Alive players with expired contact (turns_left<=0) */
     int parasite_bulbs;  /* Bulb sum from non-teammate alive players */
+    int nplayers;        /* normal_player_count() minus same-team members */
   } stats;
 
   struct {

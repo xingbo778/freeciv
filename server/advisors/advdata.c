@@ -493,12 +493,20 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
 
   /* Pre-build list of pplayer's war enemies to avoid O(P²) inner iterate.
    * For each aplayer we only need to check if any of pplayer's enemies is
-   * allied with aplayer — this list is typically 0–3 entries. */
+   * allied with aplayer — this list is typically 0–3 entries.
+   * Also compute stats.nplayers (normal_player_count() minus same-team
+   * members) in the same pass, replacing two identical O(P) loops in
+   * dai_build_adv_adjust() and dai_tech_effect_values(). */
   int adv_enemy_count = 0;
   struct player *adv_enemies[player_slot_count()];
+  adv->stats.nplayers = normal_player_count();
   players_iterate(check_pl) {
     if (player_diplstate_get(pplayer, check_pl)->type == DS_WAR) {
       adv_enemies[adv_enemy_count++] = check_pl;
+    }
+    if (check_pl->team && check_pl->team == pplayer->team
+        && check_pl != pplayer) {
+      adv->stats.nplayers--;
     }
   } players_iterate_end;
 

@@ -255,16 +255,10 @@ static void dai_tech_effect_values(struct ai_type *ait, struct player *pplayer)
   struct adv_data *adv = adv_data_get(pplayer, NULL);
   struct ai_plr *aip = def_ai_player_data(pplayer, ait);
   int turns = 9999; /* TODO: Set to correct value */
-  int nplayers = normal_player_count();
-
-  /* Remove team members from the equation */
-  players_iterate(aplayer) {
-    if (aplayer->team
-        && aplayer->team == pplayer->team
-        && aplayer != pplayer) {
-      nplayers--;
-    }
-  } players_iterate_end;
+  /* adv->stats.nplayers is pre-computed in adv_data_phase_init() as
+   * normal_player_count() minus same-team members — avoids an O(P)
+   * players_iterate here. */
+  int nplayers = adv->stats.nplayers;
 
   advance_iterate(padv) {
     if (research_invention_state(research_get(pplayer), advance_number(padv))
