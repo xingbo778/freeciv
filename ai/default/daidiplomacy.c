@@ -794,12 +794,18 @@ void dai_treaty_accepted(struct ai_type *ait, struct player *pplayer,
   This function is full of hardcoded constants by necessity. They are
   not macros since they are not used anywhere else.
 **********************************************************************/
+/* pp_fear: pplayer's own-unit contribution to fear (negative, pre-computed).
+ * pp_want: pplayer's own-unit/city contribution to want (negative, pre-computed).
+ * pp_settlers: count of pplayer's settler units + cities building settlers.
+ * pp_cities: count of pplayer's cities. */
 static int dai_war_desire(struct ai_type *ait, struct player *pplayer,
-                          struct player *target)
+                          struct player *target,
+                          int pp_fear, int pp_want,
+                          int pp_settlers, int pp_cities)
 {
   struct ai_plr *ai = dai_plr_data_get(ait, pplayer, nullptr);
   struct adv_data *adv = adv_data_get(pplayer, nullptr);
-  int want = 0, fear = 0, distance = 0, settlers = 0, cities = 0;
+  int want = 0, fear = 0, distance = 0;
   struct player_spaceship *ship = &target->spaceship;
 
   city_list_iterate(target->cities, pcity) {
@@ -835,30 +841,17 @@ static int dai_war_desire(struct ai_type *ait, struct player *pplayer,
       want += 100;
     }
   } unit_list_iterate_end;
-  unit_list_iterate(pplayer->units, punit) {
-    const struct unit_type *ptype = unit_type_get(punit);
 
-    fear -= ATTACK_POWER(ptype) / 2;
-
-    /* Our own expansionism reduces want for war */
-    if (unit_is_cityfounder(punit)) {
-      want -= 200;
-      settlers++;
-    }
-  } unit_list_iterate_end;
-  city_list_iterate(pplayer->cities, pcity) {
-    if (VUT_UTYPE == pcity->production.kind
-        && utype_is_cityfounder(pcity->production.value.utype)) {
-      want -= 150;
-      settlers++;
-    }
-    cities++;
-  } city_list_iterate_end;
+  /* Apply pre-computed pplayer own-unit and city contributions.
+   * Previously computed by iterating pplayer->units and pplayer->cities
+   * inside this function, which wasted O(U+C) work per target. */
+  fear += pp_fear;
+  want += pp_want;
 
   /* Modify by settler/cities ratio to prevent early wars when
    * we should be expanding. This will eliminate want if we
    * produce settlers in all cities (ie full expansion). */
-  want -= abs(want) / MAX(cities - settlers, 1);
+  want -= abs(want) / MAX(pp_cities - pp_settlers, 1);
 
   /* Calculate average distances to other player's empire. */
   distance = player_distance_to_player(pplayer, target);
@@ -1053,6 +1046,32 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
     }
   } players_iterate_alive_end;
 
+  /* Pre-computed pplayer-specific contributions for dai_war_desire().
+   * These depend only on pplayer (not the target) so are constant across
+   * all dai_war_desire() calls in the war-desire loop below. */
+  int pp_fear = 0;      /* own-unit fear reduction (negative) */
+  int pp_want = 0;      /* own-unit/city want reduction (negative) */
+  int pp_settlers = 0;  /* own settler units + cities building settlers */
+  int pp_cities = 0;    /* own city count */
+
+  unit_list_iterate(pplayer->units, punit) {
+    const struct unit_type *ptype = unit_type_get(punit);
+
+    pp_fear -= ATTACK_POWER(ptype) / 2;
+    if (unit_is_cityfounder(punit)) {
+      pp_want -= 200;
+      pp_settlers++;
+    }
+  } unit_list_iterate_end;
+  city_list_iterate(pplayer->cities, pcity) {
+    if (VUT_UTYPE == pcity->production.kind
+        && utype_is_cityfounder(pcity->production.value.utype)) {
+      pp_want -= 150;
+      pp_settlers++;
+    }
+    pp_cities++;
+  } city_list_iterate_end;
+
   /* Pre-compute units_in_our_territory for the love loop.
    * Iterate all units of all alive players in one pass, counting those
    * visible to pplayer that stand on pplayer's own territory.  Replaces
@@ -1078,7 +1097,9 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
         || players_on_same_team(pplayer, aplayer)) {
       continue;
     }
-    war_desire[player_index(aplayer)] = dai_war_desire(ait, pplayer, aplayer);
+    war_desire[player_index(aplayer)] = dai_war_desire(ait, pplayer, aplayer,
+                                                       pp_fear, pp_want,
+                                                       pp_settlers, pp_cities);
     if (war_desire[player_index(aplayer)] > best_desire) {
       best_desire = war_desire[player_index(aplayer)];
       best_target = aplayer;
