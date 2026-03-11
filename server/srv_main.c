@@ -1455,10 +1455,18 @@ static void end_phase(void)
     lsend_packet_end_phase(pplayer->connections);
   } phase_players_iterate_end;
 
-  /* Enact any government and/or policy changes.
-   * Do this first so that following end-phase activities take the
-   * change into account. */
+  /* Merged: government/policy changes + research auto-pick.
+   * Both are per-player-independent: government_change() only touches
+   * pplayer's government/tax state; research auto-pick only reads/writes
+   * pplayer's research pool.  Neither reads the other's output for any
+   * other player.  (Team pooled-research safety: choose_tech() sets
+   * presearch->researching; the next team-member's check finds it ≠ A_UNSET
+   * and skips — identical behaviour to two separate passes.)
+   *
+   * Government/multiplier changes must remain before city activities
+   * later in end_phase() so that they "take the change into account". */
   phase_players_iterate(pplayer) {
+    /* Enact any government and/or policy changes. */
     if (pplayer->revolution_finishes <= game.info.turn
         && pplayer->target_government != nullptr
         && pplayer->target_government != game.government_during_revolution
@@ -1490,23 +1498,24 @@ static void end_phase(void)
         }
       }
     } multipliers_iterate_end;
-  } phase_players_iterate_end;
 
-  phase_players_iterate(pplayer) {
-    struct research *presearch = research_get(pplayer);
+    /* Auto-pick research if none is set. */
+    {
+      struct research *presearch = research_get(pplayer);
 
-    if (A_UNSET == presearch->researching) {
-      Tech_type_id next_tech = research_goal_step(presearch,
-                                                  presearch->tech_goal);
+      if (A_UNSET == presearch->researching) {
+        Tech_type_id next_tech = research_goal_step(presearch,
+                                                    presearch->tech_goal);
 
-      if (A_UNSET != next_tech) {
-        choose_tech(presearch, next_tech);
-      } else {
-        choose_random_tech(presearch);
+        if (A_UNSET != next_tech) {
+          choose_tech(presearch, next_tech);
+        } else {
+          choose_random_tech(presearch);
+        }
+        /* Add the researched bulbs to the pool; do *NOT* check for finished
+         * research */
+        update_bulbs(pplayer, 0, FALSE, FALSE);
       }
-      /* Add the researched bulbs to the pool; do *NOT* check for finished
-       * research */
-      update_bulbs(pplayer, 0, FALSE, FALSE);
     }
   } phase_players_iterate_end;
 
