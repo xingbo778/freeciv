@@ -308,11 +308,19 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
    * counts (populated by assign_continent_numbers()).  Copy them directly
    * instead of re-scanning every tile — O(num_continents + num_oceans)
    * instead of O(N_tiles × P_ai) per turn. */
-  for (Continent_id c = 1; c <= adv->num_continents; c++) {
-    adv->continents[c].size = wld.map.continent_sizes[c];
+  if (wld.map.continent_sizes != nullptr) {
+    int c;
+
+    for (c = 1; c <= adv->num_continents; c++) {
+      adv->continents[c].size = wld.map.continent_sizes[c];
+    }
   }
-  for (Continent_id o = 1; o <= adv->num_oceans; o++) {
-    adv->oceans[o].size = wld.map.ocean_sizes[o];
+  if (wld.map.ocean_sizes != nullptr) {
+    int o;
+
+    for (o = 1; o <= adv->num_oceans; o++) {
+      adv->oceans[o].size = wld.map.ocean_sizes[o];
+    }
   }
 
   players_iterate(aplayer) {
