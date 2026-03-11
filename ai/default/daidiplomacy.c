@@ -877,27 +877,33 @@ static int dai_war_desire(struct ai_type *ait, struct player *pplayer,
 
   /* Modify by which treaties we would break to other players, and what
    * excuses we have to do so. FIXME: We only consider immediate
-   * allies, but we might trigger a wider chain reaction. */
+   * allies, but we might trigger a wider chain reaction.
+   *
+   * Optimised: check pplayers_allied(target, eplayer) first (fast reject
+   * for non-allied players who are the majority), then fetch pplayer's
+   * diplstate with eplayer once (vs. the previous two calls per iteration).
+   * Remember: pplayers_allied() returns true when target == eplayer. */
   players_iterate_alive(eplayer) {
-    bool cancel_excuse =
-      player_diplstate_get(pplayer, eplayer)->has_reason_to_cancel != 0;
-    enum diplstate_type ds = player_diplstate_get(pplayer, eplayer)->type;
+    const struct player_diplstate *st;
+    enum diplstate_type ds;
 
-    if (eplayer == pplayer) {
+    if (eplayer == pplayer || !pplayers_allied(target, eplayer)) {
       continue;
     }
 
-    /* Remember: pplayers_allied() returns true when target == eplayer */
-    if (!cancel_excuse && pplayers_allied(target, eplayer)) {
-      if (ds == DS_ARMISTICE) {
-        want -= abs(want) / 10; /* 10% off */
-      } else if (ds == DS_CEASEFIRE) {
-        want -= abs(want) / 7; /* 15% off */
-      } else if (ds == DS_PEACE) {
-        want -= abs(want) / 5; /* 20% off */
-      } else if (ds == DS_ALLIANCE) {
-        want -= abs(want) / 3; /* 33% off */
-      }
+    st = player_diplstate_get(pplayer, eplayer);
+    if (st->has_reason_to_cancel != 0) {
+      continue; /* cancel_excuse: we have grounds to break the treaty */
+    }
+    ds = st->type;
+    if (ds == DS_ARMISTICE) {
+      want -= abs(want) / 10; /* 10% off */
+    } else if (ds == DS_CEASEFIRE) {
+      want -= abs(want) / 7; /* 15% off */
+    } else if (ds == DS_PEACE) {
+      want -= abs(want) / 5; /* 20% off */
+    } else if (ds == DS_ALLIANCE) {
+      want -= abs(want) / 3; /* 33% off */
     }
   } players_iterate_alive_end;
 
