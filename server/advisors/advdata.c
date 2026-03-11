@@ -466,41 +466,17 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
   } city_list_iterate_end;
   adv->stats.average_production /= MAX(1, city_list_size(pplayer->cities));
 
-  /* Pre-compute per-player scalars used by dai_effect_value() to avoid
-   * O(P) players_iterate calls on every city×improvement×effect evaluation.
-   * Three effects (EFT_GAIN_AI_LOVE, EFT_HAVE_CONTACTS, EFT_TECH_PARASITE)
-   * each ran a full players_iterate per call; now they read O(1) from stats. */
+  /*** Diplomacy + per-player scalars — single O(P) pass ***/
+
+  /* Merged: n_ai/new_contacts/parasite_bulbs (previously players_iterate_alive)
+   * + adv_enemies[]/nplayers/production_leader/tech_leader (players_iterate).
+   * The stats fields are only meaningful for alive players, so they are
+   * computed inside an is_alive guard; the rest apply to all slots.
+   * The allied_with_enemy pass below must stay separate: it needs adv_enemies[]
+   * fully populated before it starts. Saves one O(P_alive) pass per phase. */
   adv->stats.n_ai = 0;
   adv->stats.new_contacts = 0;
   adv->stats.parasite_bulbs = 0;
-  players_iterate_alive(aplayer) {
-    if (is_ai(aplayer)) {
-      adv->stats.n_ai++;
-    }
-    if (aplayer != pplayer) {
-      if (player_diplstate_get(pplayer, aplayer)->contact_turns_left <= 0) {
-        adv->stats.new_contacts++;
-      }
-      if (!game.info.team_pooled_research
-          || !players_on_same_team(aplayer, pplayer)) {
-        adv->stats.parasite_bulbs += (aplayer->server.bulbs_last_turn
-                                      + city_list_size(aplayer->cities) + 1);
-      }
-    }
-  } players_iterate_alive_end;
-
-  /*** Diplomacy ***/
-
-  /* Pre-build list of pplayer's war enemies to avoid O(P²) inner iterate.
-   * For each aplayer we only need to check if any of pplayer's enemies is
-   * allied with aplayer — this list is typically 0–3 entries.
-   * Also compute stats.nplayers (normal_player_count() minus same-team
-   * members) in the same pass, replacing two identical O(P) loops in
-   * dai_build_adv_adjust() and dai_tech_effect_values(). */
-  /* Single O(P) pass: builds adv_enemies[], computes stats.nplayers, and
-   * finds production/tech leaders — merging three previously separate
-   * players_iterate loops into one.  The allied_with_enemy pass below must
-   * remain separate since it needs adv_enemies[] to be fully populated. */
   int adv_enemy_count = 0;
   struct player *adv_enemies[player_slot_count()];
   adv->stats.nplayers = normal_player_count();
@@ -521,6 +497,23 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
     if (adv->dipl.tech_leader == nullptr
         || adv->dipl.tech_leader->score.techs < check_pl->score.techs) {
       adv->dipl.tech_leader = check_pl;
+    }
+    /* Alive-only stats (n_ai / new_contacts / parasite_bulbs) */
+    if (!check_pl->is_alive) {
+      continue;
+    }
+    if (is_ai(check_pl)) {
+      adv->stats.n_ai++;
+    }
+    if (check_pl != pplayer) {
+      if (player_diplstate_get(pplayer, check_pl)->contact_turns_left <= 0) {
+        adv->stats.new_contacts++;
+      }
+      if (!game.info.team_pooled_research
+          || !players_on_same_team(check_pl, pplayer)) {
+        adv->stats.parasite_bulbs += (check_pl->server.bulbs_last_turn
+                                      + city_list_size(check_pl->cities) + 1);
+      }
     }
   } players_iterate_end;
 
