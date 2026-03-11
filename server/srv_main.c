@@ -1360,15 +1360,16 @@ static void begin_phase(bool is_new_phase)
     flush_packets();
   }
 
+  /* Merged: building_advisor (human players) + send_player_cities.
+   * building_advisor() only sets per-player advisor data for pplayer;
+   * send_player_cities() only sends pplayer's own city packets.  Neither
+   * reads the other player's advisor state, so one pass suffices. */
   phase_players_iterate(pplayer) {
     log_debug("beginning player turn for #%d (%s)",
               player_number(pplayer), player_name(pplayer));
     if (is_human(pplayer)) {
       building_advisor(pplayer);
     }
-  } phase_players_iterate_end;
-
-  phase_players_iterate(pplayer) {
     send_player_cities(pplayer);
   } phase_players_iterate_end;
 
