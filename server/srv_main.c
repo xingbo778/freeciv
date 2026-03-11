@@ -1348,12 +1348,15 @@ static void begin_phase(bool is_new_phase)
       flush_packets();
     } phase_players_iterate_end;
 
+    /* Merged: city_tc_effect_refresh + unit_tc_effect_refresh +
+     * finalize_unit_phase_beginning.  city_tc_effect_refresh touches city
+     * tile-worker/specialist state; unit_tc_effect_refresh refreshes unit
+     * vision radii; finalize_unit_phase_beginning snapshots unit activity
+     * fields.  None of these reads another player's output from this same
+     * pass, so one traversal suffices. */
     phase_players_iterate(pplayer) {
       city_tc_effect_refresh(pplayer);
       unit_tc_effect_refresh(pplayer);
-    } phase_players_iterate_end;
-
-    phase_players_iterate(pplayer) {
       finalize_unit_phase_beginning(pplayer);
     } phase_players_iterate_end;
 
