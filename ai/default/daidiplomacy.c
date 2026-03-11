@@ -1015,6 +1015,10 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
   struct ai_plr *ai = dai_plr_data_get(ait, pplayer, nullptr);
   struct adv_data *adv = adv_data_get(pplayer, nullptr);
   int war_desire[player_slot_count()];
+  /* shared_enemy_count[i] = number of alive players at war with both
+   * pplayer and player_by_number(i).  Pre-computed once here to replace
+   * the O(P) inner players_iterate in the love-calculation loop below. */
+  int shared_enemy_count[player_slot_count()];
   int best_desire = 0;
   struct player *best_target = nullptr;
 
@@ -1025,6 +1029,24 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
   }
 
   memset(war_desire, 0, sizeof(war_desire));
+
+  /* Pre-compute shared_enemy_count for the love-increment loop.
+   * For each player eplayer at war with pplayer, increment the count for
+   * every other alive aplayer that eplayer is also at war with.
+   * This converts the O(P²) nested scan inside the love loop to O(1) per
+   * aplayer, reducing per-call work from O(P²) to O(P) (plus this O(P²)
+   * pre-pass, which is unconditional but cache-friendly). */
+  memset(shared_enemy_count, 0, sizeof(shared_enemy_count));
+  players_iterate_alive(eplayer) {
+    if (eplayer != pplayer && WAR(pplayer, eplayer)) {
+      players_iterate_alive(aplayer) {
+        if (aplayer != pplayer && aplayer != eplayer
+            && WAR(eplayer, aplayer)) {
+          shared_enemy_count[player_index(aplayer)]++;
+        }
+      } players_iterate_alive_end;
+    }
+  } players_iterate_alive_end;
 
   /* Calculate our desires, and find desired war target */
   players_iterate_alive(aplayer) {
@@ -1064,12 +1086,10 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
       if (pplayers_allied(pplayer, aplayer)) {
         amount += ai->diplomacy.love_incr / 3;
       }
-      /* Increase love by each enemy they are at war with */
-      players_iterate_alive(eplayer) {
-        if (WAR(eplayer, aplayer) && WAR(pplayer, eplayer)) {
-          amount += ai->diplomacy.love_incr / 4;
-        }
-      } players_iterate_alive_end;
+      /* Increase love by each enemy they are at war with.
+       * shared_enemy_count[player_index(aplayer)] was pre-computed above. */
+      amount += shared_enemy_count[player_index(aplayer)]
+                * (ai->diplomacy.love_incr / 4);
       pplayer->ai_common.love[player_index(aplayer)] += amount;
       DIPLO_LOG(ait, LOG_DEBUG, pplayer, aplayer, "Increased love by %d", amount);
     } else if (WAR(pplayer, aplayer)) {
