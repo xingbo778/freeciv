@@ -39,7 +39,9 @@ struct adv_choice *military_advisor_choose_build(struct ai_type *ait,
                                                  const struct civ_map *nmap,
                                                  struct player *pplayer,
                                                  struct city *pcity,
-                                                 player_unit_list_getter ul_cb);
+                                                 player_unit_list_getter ul_cb,
+                                                 struct player **dangerous,
+                                                 int n_dangerous);
 void dai_assess_danger_player(struct ai_type *ait,
                               const struct civ_map *nmap, struct player *pplayer);
 int assess_defense_quadratic(struct ai_type *ait, struct city *pcity);

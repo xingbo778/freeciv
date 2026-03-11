@@ -925,6 +925,17 @@ void dai_manage_cities(struct ai_type *ait, struct player *pplayer)
    * previously called once per city in both city loops below (O(2×C×P)).
    * Hoisting to here reduces total cost to O(P + 2×C). */
   bool war_footing = dai_on_war_footing(ait, pplayer);
+  /* Pre-build dangerous-player list for military_advisor_choose_build().
+   * Previously rebuilt per city (O(C×P) calls to adv_is_player_dangerous());
+   * now computed once and shared across all city calls — O(P + C). */
+  struct player *macb_dangerous[player_slot_count()];
+  int macb_n_dangerous = 0;
+  players_iterate(aplayer) {
+    if (adv_is_player_dangerous(pplayer, aplayer)) {
+      macb_dangerous[macb_n_dangerous++] = aplayer;
+    }
+  } players_iterate_end;
+
   city_list_iterate(pplayer->cities, pcity) {
     struct ai_city *city_data = def_ai_city_data(pcity, ait);
     struct adv_choice *choice;
@@ -933,7 +944,7 @@ void dai_manage_cities(struct ai_type *ait, struct player *pplayer)
       /* Note that this function mungs the seamap, but we don't care */
       TIMING_LOG(AIT_CITY_MILITARY, TIMER_START);
       choice = military_advisor_choose_build(ait, &(wld.map), pplayer, pcity,
-                                             nullptr);
+                                             nullptr, macb_dangerous, macb_n_dangerous);
       adv_choice_copy(&(city_data->choice), choice);
       adv_free_choice(choice);
       TIMING_LOG(AIT_CITY_MILITARY, TIMER_STOP);

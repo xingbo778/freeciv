@@ -1811,7 +1811,9 @@ struct adv_choice *military_advisor_choose_build(struct ai_type *ait,
                                                  const struct civ_map *nmap,
                                                  struct player *pplayer,
                                                  struct city *pcity,
-                                                 player_unit_list_getter ul_cb)
+                                                 player_unit_list_getter ul_cb,
+                                                 struct player **dangerous,
+                                                 int n_dangerous)
 {
   struct adv_data *ai = adv_data_get(pplayer, NULL);
   struct unit_type *punittype;
@@ -1824,18 +1826,10 @@ struct adv_choice *military_advisor_choose_build(struct ai_type *ait,
   struct adv_choice *choice = adv_new_choice();
   bool allow_gold_upkeep;
 
-  /* Build dangerous-player list for assess_danger().  Replaces the
-   * players_iterate + adv_is_player_dangerous() scan inside assess_danger()
-   * with a tighter for loop over the (typically 0-3) dangerous players. */
-  struct player *macb_dangerous[player_slot_count()];
-  int macb_n_dangerous = 0;
-  players_iterate(aplayer) {
-    if (adv_is_player_dangerous(pplayer, aplayer)) {
-      macb_dangerous[macb_n_dangerous++] = aplayer;
-    }
-  } players_iterate_end;
-
-  urgency = assess_danger(ait, nmap, pcity, ul_cb, macb_dangerous, macb_n_dangerous);
+  /* dangerous[] is pre-built by the caller (one O(P) pass per player per
+   * phase), so we skip the per-city players_iterate + adv_is_player_dangerous()
+   * call here.  This reduces O(C×P) to O(P) across all cities per turn. */
+  urgency = assess_danger(ait, nmap, pcity, ul_cb, dangerous, n_dangerous);
   /* Changing to quadratic to stop AI from building piles
    * of small units -- Syela */
   /* It has to be AFTER assess_danger() thanks to wallvalue. */

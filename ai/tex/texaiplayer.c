@@ -27,6 +27,7 @@
 
 /* server/advisors */
 #include "advchoice.h"
+#include "advdata.h"
 #include "infracache.h"
 
 /* ai/default */
@@ -184,6 +185,16 @@ static enum texai_abort_msg_class texai_check_messages(struct ai_type *ait)
 
       initialize_infrastructure_cache(msg->plr);
 
+      /* Pre-build dangerous-player list once per phase instead of once
+       * per city inside military_advisor_choose_build(). */
+      struct player *tex_dangerous[player_slot_count()];
+      int tex_n_dangerous = 0;
+      players_iterate(aplayer) {
+        if (adv_is_player_dangerous(msg->plr, aplayer)) {
+          tex_dangerous[tex_n_dangerous++] = aplayer;
+        }
+      } players_iterate_end;
+
       /* Use _safe iterate in case the main thread
        * destroys cities while we are iterating through these. */
       city_list_iterate_safe(msg->plr->cities, pcity) {
@@ -198,7 +209,9 @@ static enum texai_abort_msg_class texai_check_messages(struct ai_type *ait)
         if (tex_city != NULL) {
           choice = military_advisor_choose_build(ait, texai_map_get(),
                                                  msg->plr, tex_city,
-                                                 texai_player_units);
+                                                 texai_player_units,
+                                                 tex_dangerous,
+                                                 tex_n_dangerous);
           choice_req->city_id = tex_city->id;
           adv_choice_copy(&(choice_req->choice), choice);
           adv_free_choice(choice);
