@@ -427,11 +427,16 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
   adv->explore.continent = fc_calloc(adv->num_continents + 1, sizeof(bool));
   adv->explore.ocean = fc_calloc(adv->num_oceans + 1, sizeof(bool));
 
+  /* Pre-compute per-player handicap flags once — has_handicap() is a
+   * non-inline function call that would otherwise fire once per tile. */
+  bool expl_h_targets = has_handicap(pplayer, H_TARGETS);
+  bool expl_h_huts    = has_handicap(pplayer, H_HUTS);
+
   whole_map_iterate(&(wld.map), ptile) {
     Continent_id continent = tile_continent(ptile);
 
     if (is_ocean_tile(ptile)) {
-      if (adv->explore.sea_done && has_handicap(pplayer, H_TARGETS)
+      if (adv->explore.sea_done && expl_h_targets
           && !map_is_known(ptile, pplayer)) {
         /* We're not done there. */
         adv->explore.sea_done = FALSE;
@@ -445,13 +450,12 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
       continue;
     }
     if (hut_on_tile(ptile)
-        && (!has_handicap(pplayer, H_HUTS)
-             || map_is_known(ptile, pplayer))) {
+        && (!expl_h_huts || map_is_known(ptile, pplayer))) {
       adv->explore.land_done = FALSE;
       adv->explore.continent[continent] = TRUE;
       continue;
     }
-    if (has_handicap(pplayer, H_TARGETS) && !map_is_known(ptile, pplayer)) {
+    if (expl_h_targets && !map_is_known(ptile, pplayer)) {
       /* This AI must explore */
       adv->explore.land_done = FALSE;
       adv->explore.continent[continent] = TRUE;
