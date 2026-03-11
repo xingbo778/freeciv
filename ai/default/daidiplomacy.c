@@ -1692,14 +1692,37 @@ void dai_diplomacy_actions(struct ai_type *ait, struct player *pplayer)
   }
 
   /*** If we are greviously insulted, go to war immediately. ***/
+  /* Also scan for a war target if we are short of enemies.
+   * Both passes read the same player set in the same order, and the
+   * target-finding read (WAR(), love[]) is unaffected by war_countdown(),
+   * so merging is safe and saves one full players_iterate_alive pass per
+   * AI player per turn. */
 
   players_iterate_alive(aplayer) {
+    /* [1] Revenge-war countdown */
     if (pplayer->ai_common.love[player_index(aplayer)] < 0
         && player_diplstate_get(pplayer, aplayer)->has_reason_to_cancel >= 2
         && dai_diplomacy_get(ait, pplayer, aplayer)->countdown == -1) {
       DIPLO_LOG(ait, LOG_DIPL2, pplayer, aplayer, "Plans war in revenge");
       war_countdown(ait, pplayer, aplayer, map_size_checked(),
                     DAI_WR_BEHAVIOR);
+    }
+
+    /* [3] Find most-hated war target (merged from the separate loop below) */
+    if (NEVER_MET(pplayer, aplayer)) {
+      continue;
+    }
+    {
+      int turns = game.info.turn
+                  - player_diplstate_get(pplayer, aplayer)->first_contact_turn;
+
+      if (WAR(pplayer, aplayer)) {
+        need_targets = FALSE;
+      } else if (pplayer->ai_common.love[player_index(aplayer)] < most_hatred
+                 && turns > TURNS_BEFORE_TARGET) {
+        most_hatred = pplayer->ai_common.love[player_index(aplayer)];
+        target = aplayer;
+      }
     }
   } players_iterate_alive_end;
 
@@ -1760,23 +1783,7 @@ void dai_diplomacy_actions(struct ai_type *ait, struct player *pplayer)
   }
 
   /*** Declare war against somebody if we are out of targets ***/
-
-  players_iterate_alive(aplayer) {
-    int turns; /* Turns since contact */
-
-    if (NEVER_MET(pplayer, aplayer)) {
-      continue;
-    }
-    turns = game.info.turn;
-    turns -= player_diplstate_get(pplayer, aplayer)->first_contact_turn;
-    if (WAR(pplayer, aplayer)) {
-      need_targets = FALSE;
-    } else if (pplayer->ai_common.love[player_index(aplayer)] < most_hatred
-               && turns > TURNS_BEFORE_TARGET) {
-      most_hatred = pplayer->ai_common.love[player_index(aplayer)];
-      target = aplayer;
-    }
-  } players_iterate_alive_end;
+  /* (Target search was merged into the revenge-war loop above.) */
 
   aggr = ai_trait_get_value(TRAIT_AGGRESSIVE, pplayer);
   max_sr = TRAIT_MAX_VALUE_SR;
