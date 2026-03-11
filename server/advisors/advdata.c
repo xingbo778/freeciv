@@ -493,16 +493,14 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
 
   adv->dipl.spacerace_leader = player_leading_spacerace();
 
+  /* Find production and tech leaders in a single O(P) pass instead of two. */
   adv->dipl.production_leader = nullptr;
+  adv->dipl.tech_leader = nullptr;
   players_iterate(aplayer) {
     if (adv->dipl.production_leader == nullptr
         || adv->dipl.production_leader->score.mfg < aplayer->score.mfg) {
       adv->dipl.production_leader = aplayer;
     }
-  } players_iterate_end;
-
-  adv->dipl.tech_leader = nullptr;
-  players_iterate(aplayer) {
     if (adv->dipl.tech_leader == nullptr
         || adv->dipl.tech_leader->score.techs < aplayer->score.techs) {
       adv->dipl.tech_leader = aplayer;
