@@ -1531,15 +1531,18 @@ static void end_phase(void)
       CALL_PLR_AI_FUNC(unit_turn_end, pplayer, punit);
     } unit_list_iterate_end;
   } players_iterate_end;
+  /* Merged: auto_workers + last_activities + free_bulbs reset.
+   * auto_workers_player() assigns city workers/settlers for pplayer;
+   * last_activities() runs AI end-of-turn actions for pplayer;
+   * free_bulbs is pplayer's own research counter reset to 0 before
+   * update_city_activities() recalculates it.  None of these reads
+   * another player's free_bulbs or last_activities output, so one
+   * traversal suffices. */
   phase_players_iterate(pplayer) {
     auto_workers_player(pplayer);
     if (is_ai(pplayer)) {
       CALL_PLR_AI_FUNC(last_activities, pplayer, pplayer);
     }
-  } phase_players_iterate_end;
-
-  /* Refresh cities */
-  phase_players_iterate(pplayer) {
     research_get(pplayer)->free_bulbs = 0;
   } phase_players_iterate_end;
 

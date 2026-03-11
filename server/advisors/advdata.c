@@ -304,15 +304,16 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
   adv->threats.nuclear   = 0; /* None */
   adv->threats.igwall    = FALSE;
 
-  whole_map_iterate(&(wld.map), ptile) {
-    Continent_id cont = tile_continent(ptile);
-
-    if (cont >= 0) {
-      adv->continents[cont].size++;
-    } else {
-      adv->oceans[-cont].size++;
-    }
-  } whole_map_iterate_end;
+  /* wld.map.continent_sizes[]/ocean_sizes[] already hold per-continent tile
+   * counts (populated by assign_continent_numbers()).  Copy them directly
+   * instead of re-scanning every tile — O(num_continents + num_oceans)
+   * instead of O(N_tiles × P_ai) per turn. */
+  for (Continent_id c = 1; c <= adv->num_continents; c++) {
+    adv->continents[c].size = wld.map.continent_sizes[c];
+  }
+  for (Continent_id o = 1; o <= adv->num_oceans; o++) {
+    adv->oceans[o].size = wld.map.ocean_sizes[o];
+  }
 
   players_iterate(aplayer) {
     if (!adv_is_player_dangerous(pplayer, aplayer)) {
