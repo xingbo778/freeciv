@@ -1234,6 +1234,20 @@ adv_want find_something_to_kill(struct ai_type *ait, struct player *pplayer,
 
   TIMING_LOG(AIT_FSTK, TIMER_START);
 
+  /* Pre-build hostile player list: avoids repeated POTENTIALLY_HOSTILE_PLAYER
+   * / pplayers_at_war evaluations inside the two player loops below.
+   * Hostile players are typically 1-3 out of the total, so both loops then
+   * only visit those small sets instead of all P players. */
+  struct player *fstk_hostile[player_slot_count()];
+  int fstk_n_hostile = 0;
+
+  players_iterate(aplayer) {
+    if ((punit->id == 0 && POTENTIALLY_HOSTILE_PLAYER(ait, pplayer, aplayer))
+        || (punit->id != 0 && pplayers_at_war(pplayer, aplayer))) {
+      fstk_hostile[fstk_n_hostile++] = aplayer;
+    }
+  } players_iterate_end;
+
 
   /*** Part 1: Calculate targets ***/
 
@@ -1242,12 +1256,9 @@ adv_want find_something_to_kill(struct ai_type *ait, struct player *pplayer,
    * going towards it or are near it already. */
 
   /* Reset enemy cities data. */
-  players_iterate(aplayer) {
-    /* See comment below in next usage of POTENTIALLY_HOSTILE_PLAYER. */
-    if ((punit->id == 0 && !POTENTIALLY_HOSTILE_PLAYER(ait, pplayer, aplayer))
-        || (punit->id != 0 && !pplayers_at_war(pplayer, aplayer))) {
-      continue;
-    }
+  for (int fhi = 0; fhi < fstk_n_hostile; fhi++) {
+    struct player *aplayer = fstk_hostile[fhi];
+
     city_list_iterate(aplayer->cities, acity) {
       struct ai_city *city_data = def_ai_city_data(acity, ait);
 
@@ -1257,7 +1268,7 @@ adv_want find_something_to_kill(struct ai_type *ait, struct player *pplayer,
       city_data->invasion.attack = 0;
       city_data->invasion.occupy = 0;
     } city_list_iterate_end;
-  } players_iterate_end;
+  }
 
   /* Second, calculate in units on their way there, and mark targets for
    * invasion */
@@ -1366,15 +1377,8 @@ adv_want find_something_to_kill(struct ai_type *ait, struct player *pplayer,
 
   can_occupy = unit_can_take_over(punit);
 
-  players_iterate(aplayer) {
-    /* For the virtual unit case, which is when we are called to evaluate
-     * which units to build, we want to calculate in danger and which
-     * players we want to make war with in the future. We do _not_ want
-     * to do this when actually making attacks. */
-    if ((punit->id == 0 && !POTENTIALLY_HOSTILE_PLAYER(ait, pplayer, aplayer))
-        || (punit->id != 0 && !pplayers_at_war(pplayer, aplayer))) {
-      continue; /* Not an enemy. */
-    }
+  for (int fhi = 0; fhi < fstk_n_hostile; fhi++) {
+    struct player *aplayer = fstk_hostile[fhi];
 
     city_list_iterate(aplayer->cities, acity) {
       struct tile *atile = city_tile(acity);
@@ -1640,7 +1644,7 @@ adv_want find_something_to_kill(struct ai_type *ait, struct player *pplayer,
         goto_dest_tile = atile;
       }
     } unit_list_iterate_end;
-  } players_iterate_end;
+  } /* for fhi (fstk_hostile) */
 
   if (ppath != nullptr) {
     *ppath = (goto_dest_tile != nullptr && goto_dest_tile != punit_tile
