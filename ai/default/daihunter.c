@@ -13,6 +13,8 @@
 
 #ifdef HAVE_CONFIG_H
 #include <fc_config.h>
+
+#include <string.h>
 #endif
 
 /* utility */
@@ -457,6 +459,14 @@ int dai_hunter_manage(struct ai_type *ait, struct player *pplayer,
                          &original_threat, &original_cost);
   }
 
+  /* Pre-build danger[] so adv_is_player_dangerous() is called once per
+   * player rather than once per unit inside the nested pathfinding loop. */
+  bool danger[player_slot_count()];
+  memset(danger, 0, sizeof(danger));
+  players_iterate(aplayer) {
+    danger[player_index(aplayer)] = adv_is_player_dangerous(pplayer, aplayer);
+  } players_iterate_end;
+
   pf_map_move_costs_iterate(pfm, ptile, move_cost, FALSE) {
     /* End faster if we have a target */
     if (move_cost > limit) {
@@ -481,7 +491,7 @@ int dai_hunter_manage(struct ai_type *ait, struct player *pplayer,
       struct unit *defender;
 
       /* Note that we need not (yet) be at war with aplayer */
-      if (!adv_is_player_dangerous(pplayer, aplayer)) {
+      if (!danger[player_index(aplayer)]) {
         continue;
       }
 
