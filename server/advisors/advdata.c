@@ -497,9 +497,15 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
    * Also compute stats.nplayers (normal_player_count() minus same-team
    * members) in the same pass, replacing two identical O(P) loops in
    * dai_build_adv_adjust() and dai_tech_effect_values(). */
+  /* Single O(P) pass: builds adv_enemies[], computes stats.nplayers, and
+   * finds production/tech leaders — merging three previously separate
+   * players_iterate loops into one.  The allied_with_enemy pass below must
+   * remain separate since it needs adv_enemies[] to be fully populated. */
   int adv_enemy_count = 0;
   struct player *adv_enemies[player_slot_count()];
   adv->stats.nplayers = normal_player_count();
+  adv->dipl.production_leader = nullptr;
+  adv->dipl.tech_leader = nullptr;
   players_iterate(check_pl) {
     if (player_diplstate_get(pplayer, check_pl)->type == DS_WAR) {
       adv_enemies[adv_enemy_count++] = check_pl;
@@ -507,6 +513,14 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
     if (check_pl->team && check_pl->team == pplayer->team
         && check_pl != pplayer) {
       adv->stats.nplayers--;
+    }
+    if (adv->dipl.production_leader == nullptr
+        || adv->dipl.production_leader->score.mfg < check_pl->score.mfg) {
+      adv->dipl.production_leader = check_pl;
+    }
+    if (adv->dipl.tech_leader == nullptr
+        || adv->dipl.tech_leader->score.techs < check_pl->score.techs) {
+      adv->dipl.tech_leader = check_pl;
     }
   } players_iterate_end;
 
@@ -523,20 +537,6 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
   } players_iterate_end;
 
   adv->dipl.spacerace_leader = player_leading_spacerace();
-
-  /* Find production and tech leaders in a single O(P) pass instead of two. */
-  adv->dipl.production_leader = nullptr;
-  adv->dipl.tech_leader = nullptr;
-  players_iterate(aplayer) {
-    if (adv->dipl.production_leader == nullptr
-        || adv->dipl.production_leader->score.mfg < aplayer->score.mfg) {
-      adv->dipl.production_leader = aplayer;
-    }
-    if (adv->dipl.tech_leader == nullptr
-        || adv->dipl.tech_leader->score.techs < aplayer->score.techs) {
-      adv->dipl.tech_leader = aplayer;
-    }
-  } players_iterate_end;
 
   /*** Priorities ***/
 
