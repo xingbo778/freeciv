@@ -1257,18 +1257,26 @@ static void suggest_tech_exchange(struct ai_type *ait,
     }
   } advance_index_iterate_max_end;
 
-  advance_index_iterate_max(A_FIRST, tech, ac) {
-    if (worth[tech] <= 0) {
-      continue;
-    }
-    advance_index_iterate_max(A_FIRST, tech2, ac) {
-      int diff;
+  /* Pre-filter techs into two small lists to avoid O(T²) double-iterate.
+   * pos_techs: player2 has, player1 wants (worth > 0, player2 gives)
+   * neg_techs: player1 has, player2 wants (worth < 0, player1 gives) */
+  Tech_type_id pos_techs[ac], neg_techs[ac];
+  int pos_count = 0, neg_count = 0;
 
-      if (worth[tech2] >= 0) {
-        continue;
-      }
+  advance_index_iterate_max(A_FIRST, tech, ac) {
+    if (worth[tech] > 0) {
+      pos_techs[pos_count++] = tech;
+    } else if (worth[tech] < 0) {
+      neg_techs[neg_count++] = tech;
+    }
+  } advance_index_iterate_max_end;
+
+  for (int pi = 0; pi < pos_count; pi++) {
+    Tech_type_id tech = pos_techs[pi];
+    for (int ni = 0; ni < neg_count; ni++) {
+      Tech_type_id tech2 = neg_techs[ni];
       /* Tech2 is given by player1, tech is given by player2 */
-      diff = worth[tech] + worth[tech2];
+      int diff = worth[tech] + worth[tech2];
       if ((diff > 0 && player1->economic.gold >= diff)
           || (diff < 0 && player2->economic.gold >= -diff)
           || diff == 0) {
@@ -1281,8 +1289,8 @@ static void suggest_tech_exchange(struct ai_type *ait,
         }
         return;
       }
-    } advance_index_iterate_max_end;
-  } advance_index_iterate_max_end;
+    }
+  }
 }
 
 /******************************************************************//**
