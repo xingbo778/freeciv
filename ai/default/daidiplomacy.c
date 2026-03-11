@@ -1843,6 +1843,16 @@ void dai_diplomacy_actions(struct ai_type *ait, struct player *pplayer)
 
   /*** Try to make peace with everyone we love ***/
 
+  /* Pre-build list of pplayer's current war targets to avoid an O(P²)
+   * players_iterate inside the DS_ALLIANCE branch below. */
+  int pp_enemy_count = 0;
+  struct player *pp_enemies[player_slot_count()];
+  players_iterate_alive(eplayer) {
+    if (eplayer != pplayer && WAR(pplayer, eplayer)) {
+      pp_enemies[pp_enemy_count++] = eplayer;
+    }
+  } players_iterate_alive_end;
+
   players_iterate_alive(aplayer) {
     if (get_player_bonus(aplayer, EFT_NO_DIPLOMACY) <= 0
         && diplomacy_possible(pplayer, aplayer)) {
@@ -1909,13 +1919,12 @@ void dai_diplomacy_actions(struct ai_type *ait, struct player *pplayer)
           break;
         }
         target = nullptr;
-        players_iterate_alive(eplayer) {
-          if (WAR(pplayer, eplayer)
-              && !pplayers_at_war(aplayer, eplayer)) {
-            target = eplayer;
+        for (int ei = 0; ei < pp_enemy_count; ei++) {
+          if (!pplayers_at_war(aplayer, pp_enemies[ei])) {
+            target = pp_enemies[ei];
             break;
           }
-        } players_iterate_alive_end;
+        }
 
         if ((players_on_same_team(pplayer, aplayer)
              || pplayer->ai_common.love[player_index(aplayer)] > MAX_AI_LOVE / 2)) {
