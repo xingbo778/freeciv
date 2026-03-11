@@ -172,7 +172,25 @@ void dai_data_phase_begin(struct ai_type *ait, struct player *pplayer,
 
   /* Set per-player variables. We must set all players, since players
    * can be created during a turn, and we don't want those to have
-   * invalid values. */
+   * invalid values.
+   *
+   * Pre-build pplayer's war-enemy and ally lists once so the inner loop
+   * over check_pl (previously O(P²)) reduces to O(P × small_list). */
+  int ddat_enemy_count = 0, ddat_ally_count = 0;
+  struct player *ddat_enemies[player_slot_count()];
+  struct player *ddat_allies[player_slot_count()];
+  players_iterate(check_pl) {
+    if (check_pl == pplayer || !check_pl->is_alive) {
+      continue;
+    }
+    if (player_diplstate_get(pplayer, check_pl)->type == DS_WAR) {
+      ddat_enemies[ddat_enemy_count++] = check_pl;
+    }
+    if (pplayers_allied(pplayer, check_pl)) {
+      ddat_allies[ddat_ally_count++] = check_pl;
+    }
+  } players_iterate_end;
+
   players_iterate(aplayer) {
     struct ai_dip_intel *adip = dai_diplomacy_get(ait, pplayer, aplayer);
 
@@ -180,34 +198,30 @@ void dai_data_phase_begin(struct ai_type *ait, struct player *pplayer,
     adip->at_war_with_ally = NULL;
     adip->is_allied_with_ally = NULL;
 
-    players_iterate(check_pl) {
-      if (check_pl == pplayer
-          || check_pl == aplayer
-          || !check_pl->is_alive) {
-        continue;
-      }
-      if (adip->is_allied_with_enemy == NULL
-          && pplayers_allied(aplayer, check_pl)
-          && player_diplstate_get(pplayer, check_pl)->type == DS_WAR) {
-        adip->is_allied_with_enemy = check_pl;
-      }
-      if (adip->at_war_with_ally == NULL
-          && pplayers_allied(pplayer, check_pl)
-          && player_diplstate_get(aplayer, check_pl)->type == DS_WAR) {
-        adip->at_war_with_ally = check_pl;
-      }
-      if (adip->is_allied_with_ally == NULL
-          && pplayers_allied(aplayer, check_pl)
-          && pplayers_allied(pplayer, check_pl)) {
-        adip->is_allied_with_ally = check_pl;
-      }
-      /* Early exit: all three flags resolved */
-      if (adip->is_allied_with_enemy != NULL
-          && adip->at_war_with_ally != NULL
-          && adip->is_allied_with_ally != NULL) {
+    /* is_allied_with_enemy: an enemy of pplayer who is allied with aplayer */
+    for (int ei = 0; ei < ddat_enemy_count; ei++) {
+      if (ddat_enemies[ei] != aplayer
+          && pplayers_allied(aplayer, ddat_enemies[ei])) {
+        adip->is_allied_with_enemy = ddat_enemies[ei];
         break;
       }
-    } players_iterate_end;
+    }
+    /* at_war_with_ally: an ally of pplayer who is at war with aplayer */
+    for (int ai_idx = 0; ai_idx < ddat_ally_count; ai_idx++) {
+      if (ddat_allies[ai_idx] != aplayer
+          && player_diplstate_get(aplayer, ddat_allies[ai_idx])->type == DS_WAR) {
+        adip->at_war_with_ally = ddat_allies[ai_idx];
+        break;
+      }
+    }
+    /* is_allied_with_ally: a third player allied with both pplayer and aplayer */
+    for (int ai_idx = 0; ai_idx < ddat_ally_count; ai_idx++) {
+      if (ddat_allies[ai_idx] != aplayer
+          && pplayers_allied(aplayer, ddat_allies[ai_idx])) {
+        adip->is_allied_with_ally = ddat_allies[ai_idx];
+        break;
+      }
+    }
   } players_iterate_end;
 
   /*** Statistics ***/
