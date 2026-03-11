@@ -1114,8 +1114,27 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
 
   /* Time to make love. If we've been wronged, hold off that love
    * for a while. Also, cool our head each turn with love_coeff. */
+  /* Can we win by space race?  (moved before the merged love loop below,
+   * since it is independent of per-aplayer love values.) */
+  if (adv->dipl.spacerace_leader == pplayer) {
+    log_base(LOG_DIPL2, "%s going for space race victory!",
+             player_name(pplayer));
+    ai->diplomacy.strategy = WIN_SPACE; /* Yes! */
+  } else {
+    if (ai->diplomacy.strategy == WIN_SPACE) {
+      ai->diplomacy.strategy = WIN_OPEN;
+    }
+  }
+
+  /* Pre-compute the love-decay coefficient once (avoids per-player FP div). */
+  double love_decay = (double)ai->diplomacy.love_coeff / 100.0;
+
+  /* Merged: love-increment adjustments (was separate players_iterate_alive)
+   * + love-cooling and clamping (was a separate players_iterate).
+   * Saves one full players_iterate pass per AI player per turn. */
   players_iterate_alive(aplayer) {
     struct ai_dip_intel *adip = dai_diplomacy_get(ait, pplayer, aplayer);
+    int *love = &pplayer->ai_common.love[player_index(aplayer)];
     int amount = 0;
     int pit;
 
@@ -1139,29 +1158,29 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
        * shared_enemy_count[player_index(aplayer)] was pre-computed above. */
       amount += shared_enemy_count[player_index(aplayer)]
                 * (ai->diplomacy.love_incr / 4);
-      pplayer->ai_common.love[player_index(aplayer)] += amount;
+      *love += amount;
       DIPLO_LOG(ait, LOG_DEBUG, pplayer, aplayer, "Increased love by %d", amount);
     } else if (WAR(pplayer, aplayer)) {
       amount -= ai->diplomacy.love_incr / 2;
-      pplayer->ai_common.love[player_index(aplayer)] += amount;
+      *love += amount;
       DIPLO_LOG(ait, LOG_DEBUG, pplayer, aplayer, "%d love lost to war", amount);
     } else if (player_diplstate_get(pplayer, aplayer)->has_reason_to_cancel
                != 0) {
       /* Provoked in time of peace */
-      if (pplayer->ai_common.love[player_index(aplayer)] > 0) {
-        amount -= pplayer->ai_common.love[player_index(aplayer)] / 2;
+      if (*love > 0) {
+        amount -= *love / 2;
       }
       amount -= ai->diplomacy.love_incr * 6;
-      pplayer->ai_common.love[player_index(aplayer)] += amount;
+      *love += amount;
       DIPLO_LOG(ait, LOG_DEBUG, pplayer, aplayer, "Provoked! %d love lost!",
                 amount);
     }
-    if (pplayer->ai_common.love[player_index(aplayer)] > MAX_AI_LOVE * 8 / 10
+    if (*love > MAX_AI_LOVE * 8 / 10
         && !pplayers_allied(pplayer, aplayer)) {
       int love_change = ai->diplomacy.love_incr / 3;
 
       /* Upper levels of AI trust and love is reserved for allies. */
-      pplayer->ai_common.love[player_index(aplayer)] -= love_change;
+      *love -= love_change;
       DIPLO_LOG(ait, LOG_DEBUG, pplayer, aplayer, "%d love lost from excess",
                 love_change);
     }
@@ -1174,7 +1193,7 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
     amount -= MIN(pit,
                   ai->diplomacy.love_incr
                   * ((adip->is_allied_with_enemy != nullptr) + 1));
-    pplayer->ai_common.love[player_index(aplayer)] += amount;
+    *love += amount;
     if (amount != 0) {
       DIPLO_LOG(ait, LOG_DEBUG, pplayer, aplayer, "%d love lost due to units inside "
                 "our borders", amount);
@@ -1183,25 +1202,10 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
     /* Increase the love if aplayer has got a building that makes
      * us love them more. Typically it's Eiffel Tower */
     if (!NEVER_MET(pplayer, aplayer)) {
-      pplayer->ai_common.love[player_index(aplayer)] +=
-        get_player_bonus(aplayer, EFT_GAIN_AI_LOVE) * MAX_AI_LOVE / 1000;
+      *love += get_player_bonus(aplayer, EFT_GAIN_AI_LOVE) * MAX_AI_LOVE / 1000;
     }
-  } players_iterate_alive_end;
 
-  /* Can we win by space race? */
-  if (adv->dipl.spacerace_leader == pplayer) {
-    log_base(LOG_DIPL2, "%s going for space race victory!",
-             player_name(pplayer));
-    ai->diplomacy.strategy = WIN_SPACE; /* Yes! */
-  } else {
-    if (ai->diplomacy.strategy == WIN_SPACE) {
-      ai->diplomacy.strategy = WIN_OPEN;
-    }
-  }
-
-  players_iterate(aplayer) {
-    int *love = &pplayer->ai_common.love[player_index(aplayer)];
-
+    /* War-target love reduction (merged from former players_iterate below). */
     if (aplayer == best_target && best_desire > 0) {
       int reduction = MIN(best_desire, MAX_AI_LOVE / 20);
 
@@ -1210,12 +1214,10 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
                 "love by %d ", reduction);
     }
 
-    /* Edge love towards zero */
-    *love -= *love * ((double)ai->diplomacy.love_coeff / 100.0);
-
-    /* AI love should always be in range [-MAX_AI_LOVE..MAX_AI_LOVE] */
+    /* Edge love towards zero, then clamp. */
+    *love -= (int)(*love * love_decay);
     *love = MAX(-MAX_AI_LOVE, MIN(MAX_AI_LOVE, *love));
-  } players_iterate_end;
+  } players_iterate_alive_end;
 }
 
 /******************************************************************//**
