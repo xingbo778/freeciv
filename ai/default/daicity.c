@@ -1607,11 +1607,11 @@ static void adjust_improvement_wants_by_effects(struct ai_type *ait,
                                                 struct player *pplayer,
                                                 struct city *pcity,
                                                 struct impr_type *pimprove,
-                                                const bool already)
+                                                const bool already,
+                                                int nplayers)
 {
   adv_want v = 0;
   int cities[REQ_RANGE_COUNT];
-  int nplayers = normal_player_count();
   struct adv_data *ai = adv_data_get(pplayer, nullptr);
   bool capital = is_capital(pcity);
   bool can_build = TRUE;
@@ -1643,14 +1643,7 @@ static void adjust_improvement_wants_by_effects(struct ai_type *ait,
     .tile = city_tile(pcity),
   };
 
-  /* Remove team members from the equation */
-  players_iterate(aplayer) {
-    if (aplayer->team
-        && aplayer->team == pplayer->team
-        && aplayer != pplayer) {
-      nplayers--;
-    }
-  } players_iterate_end;
+  /* nplayers is pre-computed by the caller (team members already subtracted). */
 
   if (is_convert) {
     /* Since coinage-like improvements contains some entirely spurious
@@ -1981,6 +1974,16 @@ void dai_build_adv_init(struct ai_type *ait, struct player *pplayer)
 void dai_build_adv_adjust(struct ai_type *ait, struct player *pplayer,
                           struct city *wonder_city)
 {
+  /* Pre-compute the team-adjusted player count once; passed to
+   * adjust_improvement_wants_by_effects() to avoid an O(P) players_iterate
+   * on every city × improvement combination. */
+  int nplayers = normal_player_count();
+  players_iterate(aplayer) {
+    if (aplayer->team && aplayer->team == pplayer->team && aplayer != pplayer) {
+      nplayers--;
+    }
+  } players_iterate_end;
+
   /* Clear old building wants.
    * Do this separately from the iteration over improvement types
    * because each iteration could actually update more than one improvement,
@@ -2023,7 +2026,7 @@ void dai_build_adv_adjust(struct ai_type *ait, struct player *pplayer,
           int idx = improvement_index(pimprove);
 
           adjust_improvement_wants_by_effects(ait, pplayer, pcity,
-                                              pimprove, already);
+                                              pimprove, already, nplayers);
 
           fc_assert(!(already
                       && 0 < pcity->server.adv->building_want[idx]));
