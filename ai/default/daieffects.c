@@ -561,15 +561,18 @@ adv_want dai_effect_value(struct player *pplayer,
                                     * unit is fortified. */
     break;
   case EFT_GAIN_AI_LOVE:
-    players_iterate(aplayer) {
-      if (is_ai(aplayer)) {
-	if (has_handicap(pplayer, H_DEFENSIVE)) {
-	  v += amount / 10;
-	} else {
-	  v += amount / 20;
-	}
-      }
-    } players_iterate_end;
+    {
+      /* has_handicap() result is pplayer-constant — hoist out of the loop. */
+      int per_ai = has_handicap(pplayer, H_DEFENSIVE) ? amount / 10 : amount / 20;
+      int n_ai = 0;
+
+      players_iterate(aplayer) {
+        if (is_ai(aplayer)) {
+          n_ai++;
+        }
+      } players_iterate_end;
+      v += n_ai * per_ai;
+    }
     break;
   case EFT_UPGRADE_PRICE_PCT:
     /* This is based on average base upgrade price of 50. */
