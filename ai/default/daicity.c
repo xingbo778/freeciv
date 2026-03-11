@@ -1608,7 +1608,8 @@ static void adjust_improvement_wants_by_effects(struct ai_type *ait,
                                                 struct city *pcity,
                                                 struct impr_type *pimprove,
                                                 const bool already,
-                                                int nplayers)
+                                                int nplayers,
+                                                int obs_turns)
 {
   adv_want v = 0;
   int cities[REQ_RANGE_COUNT];
@@ -1620,7 +1621,7 @@ static void adjust_improvement_wants_by_effects(struct ai_type *ait,
     .value = {.building = pimprove}
   };
   const bool is_convert = is_convert_improvement(pimprove);
-  int turns = 9999;
+  int turns = obs_turns;
   int place = tile_continent(pcity->tile);
 
   /* FIXME: Do we really need the effects check to be made *without*
@@ -1698,21 +1699,10 @@ static void adjust_improvement_wants_by_effects(struct ai_type *ait,
   cities[REQ_RANGE_ADJACENT] = cities[REQ_RANGE_CADJACENT]
     = cities[REQ_RANGE_TILE] = 0;
 
-  players_iterate(aplayer) {
-    int potential = (aplayer->server.bulbs_last_turn
-                     + city_list_size(aplayer->cities) + 1);
-
-    if (potential > 0) {
-      requirement_vector_iterate(&pimprove->obsolete_by, pobs) {
-        if (pobs->source.kind == VUT_ADVANCE && pobs->present) {
-          turns = MIN(turns,
-                      research_goal_bulbs_required(research_get(aplayer),
-                          advance_number(pobs->source.value.advance))
-                      / (potential + 1));
-        }
-      } requirement_vector_iterate_end;
-    }
-  } players_iterate_end;
+  /* obs_turns: pre-computed by caller — turns until any player obsoletes
+   * this improvement.  The players_iterate below was hoisted to the
+   * per-improvement level in dai_build_adv_adjust() to avoid O(P) work
+   * on every city × improvement combination. */
 
   effect_list_iterate(get_req_source_effects(&source), peffect) {
     enum req_range range = REQ_RANGE_MAX;
@@ -2011,6 +2001,25 @@ void dai_build_adv_adjust(struct ai_type *ait, struct player *pplayer,
 
   improvement_iterate(pimprove) {
     if (can_player_build_improvement_later(pplayer, pimprove)) {
+      /* Pre-compute obsolescence turns once per improvement (not per city).
+       * This value only depends on pimprove and the current research state
+       * of all players, which is constant within a single turn. */
+      int obs_turns = 9999;
+      players_iterate(aplayer) {
+        int potential = (aplayer->server.bulbs_last_turn
+                         + city_list_size(aplayer->cities) + 1);
+        if (potential > 0) {
+          requirement_vector_iterate(&pimprove->obsolete_by, pobs) {
+            if (pobs->source.kind == VUT_ADVANCE && pobs->present) {
+              obs_turns = MIN(obs_turns,
+                              research_goal_bulbs_required(research_get(aplayer),
+                                  advance_number(pobs->source.value.advance))
+                              / (potential + 1));
+            }
+          } requirement_vector_iterate_end;
+        }
+      } players_iterate_end;
+
       city_list_iterate(pplayer->cities, pcity) {
         struct ai_city *city_data = def_ai_city_data(pcity, ait);
 
@@ -2026,7 +2035,8 @@ void dai_build_adv_adjust(struct ai_type *ait, struct player *pplayer,
           int idx = improvement_index(pimprove);
 
           adjust_improvement_wants_by_effects(ait, pplayer, pcity,
-                                              pimprove, already, nplayers);
+                                              pimprove, already, nplayers,
+                                              obs_turns);
 
           fc_assert(!(already
                       && 0 < pcity->server.adv->building_want[idx]));
