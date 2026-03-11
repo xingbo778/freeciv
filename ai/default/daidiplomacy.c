@@ -1078,29 +1078,25 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
     pp_cities++;
   } city_list_iterate_end;
 
-  /* Pre-compute units_in_our_territory for the love loop.
-   * Iterate all units of all alive players in one pass, counting those
-   * visible to pplayer that stand on pplayer's own territory.  Replaces
-   * P separate O(U) calls to player_in_territory() inside the love loop. */
+  /* Merged: units_in_our_territory pre-build + war-desire computation.
+   * Both passes iterate the same players_iterate_alive set.
+   * dai_war_desire() does not read units_in_our_territory (which is only
+   * consumed by the love loop further below), so merging is safe and saves
+   * one O(P) players_iterate_alive pass per AI player per turn. */
   memset(units_in_our_territory, 0, sizeof(units_in_our_territory));
   players_iterate_alive(aplayer) {
     if (aplayer == pplayer) {
       continue;
     }
+    /* Part 1: count aplayer's units visible to pplayer inside pplayer's tiles */
     unit_list_iterate(aplayer->units, punit) {
       if (tile_owner(unit_tile(punit)) == pplayer
           && can_player_see_unit(pplayer, punit)) {
         units_in_our_territory[player_index(aplayer)]++;
       }
     } unit_list_iterate_end;
-  } players_iterate_alive_end;
-
-  /* Calculate our desires, and find desired war target */
-  players_iterate_alive(aplayer) {
-    /* We don't hate ourselves, those we don't know or team members. */
-    if (aplayer == pplayer
-        || NEVER_MET(pplayer, aplayer)
-        || players_on_same_team(pplayer, aplayer)) {
+    /* Part 2: war desire — skip players we haven't met or are on our team */
+    if (NEVER_MET(pplayer, aplayer) || players_on_same_team(pplayer, aplayer)) {
       continue;
     }
     war_desire[player_index(aplayer)] = dai_war_desire(ait, pplayer, aplayer,
@@ -1834,6 +1830,14 @@ void dai_diplomacy_actions(struct ai_type *ait, struct player *pplayer)
 
   /*** Actually declare war (when we have moved units into position) ***/
 
+  /* Merged: countdown-decrement + pp_enemies pre-build.
+   * pp_enemies is built from alive-player war targets; building it in the
+   * same players_iterate (which already guards dead players via is_alive)
+   * saves one O(P_alive) pass per AI player per turn.  pp_enemies is
+   * populated after any dai_go_to_war() calls so newly-declared wars are
+   * captured, matching the original separate-loop behaviour. */
+  int pp_enemy_count = 0;
+  struct player *pp_enemies[player_slot_count()];
   players_iterate(aplayer) {
     if (!players_on_same_team(pplayer, aplayer)) {
       struct ai_dip_intel *adip = dai_diplomacy_get(ait, pplayer, aplayer);
@@ -1853,20 +1857,14 @@ void dai_diplomacy_actions(struct ai_type *ait, struct player *pplayer)
         /* Negative countdown less than -1 is war stubbornness */
         adip->countdown++;
       }
+      /* Collect war targets (after any war declaration above) */
+      if (aplayer != pplayer && WAR(pplayer, aplayer)) {
+        pp_enemies[pp_enemy_count++] = aplayer;
+      }
     }
   } players_iterate_end;
 
   /*** Try to make peace with everyone we love ***/
-
-  /* Pre-build list of pplayer's current war targets to avoid an O(P²)
-   * players_iterate inside the DS_ALLIANCE branch below. */
-  int pp_enemy_count = 0;
-  struct player *pp_enemies[player_slot_count()];
-  players_iterate_alive(eplayer) {
-    if (eplayer != pplayer && WAR(pplayer, eplayer)) {
-      pp_enemies[pp_enemy_count++] = eplayer;
-    }
-  } players_iterate_alive_end;
 
   players_iterate_alive(aplayer) {
     if (get_player_bonus(aplayer, EFT_NO_DIPLOMACY) <= 0
