@@ -226,11 +226,23 @@ void dai_data_phase_begin(struct ai_type *ait, struct player *pplayer,
 
   /*** Statistics ***/
 
+  /* Merged: workers-by-continent + diplomat-reservations + ferry-stats.
+   * All three previously iterated pplayer->units separately.  They are
+   * fully independent (each writes distinct fields, none reads another's
+   * output), so one traversal suffices.  aiferry_init_stats() is inlined
+   * here; its function still exists for callers outside daidata.c but is
+   * no longer called from this path. */
   ai->stats.workers = fc_calloc(adv->num_continents + 1, sizeof(int));
   ai->stats.ocean_workers = fc_calloc(adv->num_oceans + 1, sizeof(int));
+  BV_CLR_ALL(ai->stats.diplomat_reservations);
+  ai->stats.passengers = 0;
+  ai->stats.boats = 0;
+  ai->stats.available_boats = 0;
   unit_list_iterate(pplayer->units, punit) {
     struct tile *ptile = unit_tile(punit);
+    struct unit_ai *unit_data = def_ai_unit_data(punit, ait);
 
+    /* Workers */
     if (unit_has_type_flag(punit, UTYF_WORKERS)) {
       Continent_id cont = tile_continent(ptile);
 
@@ -250,27 +262,32 @@ void dai_data_phase_begin(struct ai_type *ait, struct player *pplayer,
         }
       }
     }
-  } unit_list_iterate_end;
 
-  BV_CLR_ALL(ai->stats.diplomat_reservations);
-  unit_list_iterate(pplayer->units, punit) {
+    /* Diplomat reservations */
     if (aia_utype_is_considered_spy_vs_city(unit_type_get(punit))
-        && def_ai_unit_data(punit, ait)->task == AIUNIT_ATTACK) {
-
+        && unit_data->task == AIUNIT_ATTACK) {
       fc_assert_msg(punit->goto_tile != NULL, "No target city for spy action");
-
       if (punit->goto_tile != NULL) {
         struct city *pcity = tile_city(punit->goto_tile);
 
         if (pcity != NULL) {
-          /* Heading somewhere on a mission, reserve target. */
           BV_SET(ai->stats.diplomat_reservations, pcity->id);
         }
       }
     }
-  } unit_list_iterate_end;
 
-  aiferry_init_stats(ait, pplayer);
+    /* Ferry stats (inlined from aiferry_init_stats) */
+    if (dai_is_ferry(punit, ait)) {
+      ai->stats.boats++;
+      if (unit_data->passenger == FERRY_AVAILABLE) {
+        ai->stats.available_boats++;
+      }
+    }
+    if (unit_data->ferryboat == FERRY_WANTED) {
+      UNIT_LOG(LOG_DEBUG, punit, "wants a boat.");
+      ai->stats.passengers++;
+    }
+  } unit_list_iterate_end;
 
   /*** Interception engine ***/
 
