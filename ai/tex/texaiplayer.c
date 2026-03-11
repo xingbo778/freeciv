@@ -181,58 +181,63 @@ static enum texai_abort_msg_class texai_check_messages(struct ai_type *ait)
 
     switch (msg->type) {
     case TEXAI_MSG_FIRST_ACTIVITIES:
-      fc_mutex_allocate(&game.server.mutexes.city_list);
+      {
+        /* Wrap in a block so VLA tex_dangerous[] and other declarations
+         * don't cross into later case labels (GCC: "jump into scope of
+         * identifier with variably modified type"). */
+        fc_mutex_allocate(&game.server.mutexes.city_list);
 
-      initialize_infrastructure_cache(msg->plr);
+        initialize_infrastructure_cache(msg->plr);
 
-      /* Pre-build dangerous-player list once per phase instead of once
-       * per city inside military_advisor_choose_build(). */
-      struct player *tex_dangerous[player_slot_count()];
-      int tex_n_dangerous = 0;
-      players_iterate(aplayer) {
-        if (adv_is_player_dangerous(msg->plr, aplayer)) {
-          tex_dangerous[tex_n_dangerous++] = aplayer;
-        }
-      } players_iterate_end;
+        /* Pre-build dangerous-player list once per phase instead of once
+         * per city inside military_advisor_choose_build(). */
+        struct player *tex_dangerous[player_slot_count()];
+        int tex_n_dangerous = 0;
 
-      /* Use _safe iterate in case the main thread
-       * destroys cities while we are iterating through these. */
-      city_list_iterate_safe(msg->plr->cities, pcity) {
-        struct adv_choice *choice;
-        struct texai_build_choice_req *choice_req
-          = fc_malloc(sizeof(struct texai_build_choice_req));
-        struct city *tex_city = texai_map_city(pcity->id);
+        players_iterate(aplayer) {
+          if (adv_is_player_dangerous(msg->plr, aplayer)) {
+            tex_dangerous[tex_n_dangerous++] = aplayer;
+          }
+        } players_iterate_end;
 
-        texai_city_worker_requests_create(ait, msg->plr, pcity);
-        texai_city_worker_wants(ait, msg->plr, pcity);
+        /* Use _safe iterate in case the main thread
+         * destroys cities while we are iterating through these. */
+        city_list_iterate_safe(msg->plr->cities, pcity) {
+          struct adv_choice *choice;
+          struct texai_build_choice_req *choice_req
+            = fc_malloc(sizeof(struct texai_build_choice_req));
+          struct city *tex_city = texai_map_city(pcity->id);
 
-        if (tex_city != NULL) {
-          choice = military_advisor_choose_build(ait, texai_map_get(),
-                                                 msg->plr, tex_city,
-                                                 texai_player_units,
-                                                 tex_dangerous,
-                                                 tex_n_dangerous);
-          choice_req->city_id = tex_city->id;
-          adv_choice_copy(&(choice_req->choice), choice);
-          adv_free_choice(choice);
-          texai_send_req(TEXAI_BUILD_CHOICE, msg->plr, choice_req);
-        }
+          texai_city_worker_requests_create(ait, msg->plr, pcity);
+          texai_city_worker_wants(ait, msg->plr, pcity);
 
-        /* Release mutex for a second in case main thread
-         * wants to do something to city list. */
+          if (tex_city != NULL) {
+            choice = military_advisor_choose_build(ait, texai_map_get(),
+                                                   msg->plr, tex_city,
+                                                   texai_player_units,
+                                                   tex_dangerous,
+                                                   tex_n_dangerous);
+            choice_req->city_id = tex_city->id;
+            adv_choice_copy(&(choice_req->choice), choice);
+            adv_free_choice(choice);
+            texai_send_req(TEXAI_BUILD_CHOICE, msg->plr, choice_req);
+          }
+
+          /* Release mutex for a second in case main thread
+           * wants to do something to city list. */
+          fc_mutex_release(&game.server.mutexes.city_list);
+
+          /* Recursive message check in case phase is finished. */
+          new_abort = texai_check_messages(ait);
+          fc_mutex_allocate(&game.server.mutexes.city_list);
+          if (new_abort < TEXAI_ABORT_NONE) {
+            break;
+          }
+        } city_list_iterate_safe_end;
         fc_mutex_release(&game.server.mutexes.city_list);
 
-        /* Recursive message check in case phase is finished. */
-        new_abort = texai_check_messages(ait);
-        fc_mutex_allocate(&game.server.mutexes.city_list);
-        if (new_abort < TEXAI_ABORT_NONE) {
-          break;
-        }
-      } city_list_iterate_safe_end;
-      fc_mutex_release(&game.server.mutexes.city_list);
-
-      texai_send_req(TEXAI_REQ_TURN_DONE, msg->plr, NULL);
-
+        texai_send_req(TEXAI_REQ_TURN_DONE, msg->plr, NULL);
+      }
       break;
     case TEXAI_MSG_TILE_INFO:
       texai_tile_info_recv(msg->data);
