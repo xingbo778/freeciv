@@ -186,17 +186,26 @@ void dai_data_phase_begin(struct ai_type *ait, struct player *pplayer,
           || !check_pl->is_alive) {
         continue;
       }
-      if (pplayers_allied(aplayer, check_pl)
+      if (adip->is_allied_with_enemy == NULL
+          && pplayers_allied(aplayer, check_pl)
           && player_diplstate_get(pplayer, check_pl)->type == DS_WAR) {
-       adip->is_allied_with_enemy = check_pl;
+        adip->is_allied_with_enemy = check_pl;
       }
-      if (pplayers_allied(pplayer, check_pl)
+      if (adip->at_war_with_ally == NULL
+          && pplayers_allied(pplayer, check_pl)
           && player_diplstate_get(aplayer, check_pl)->type == DS_WAR) {
         adip->at_war_with_ally = check_pl;
       }
-      if (pplayers_allied(aplayer, check_pl)
+      if (adip->is_allied_with_ally == NULL
+          && pplayers_allied(aplayer, check_pl)
           && pplayers_allied(pplayer, check_pl)) {
         adip->is_allied_with_ally = check_pl;
+      }
+      /* Early exit: all three flags resolved */
+      if (adip->is_allied_with_enemy != NULL
+          && adip->at_war_with_ally != NULL
+          && adip->is_allied_with_ally != NULL) {
+        break;
       }
     } players_iterate_end;
   } players_iterate_end;
