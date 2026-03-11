@@ -257,28 +257,16 @@ adv_want dai_effect_value(struct player *pplayer,
     fc__fallthrough;
   case EFT_TECH_PARASITE:
     {
-      int bulbs;
       int value;
 
       if (nplayers <= amount) {
         break;
       }
 
-      bulbs = 0;
-      players_iterate_alive(aplayer) {
-        if (aplayer != pplayer
-            && (!game.info.team_pooled_research
-                || !players_on_same_team(aplayer, pplayer))) {
-          bulbs += (aplayer->server.bulbs_last_turn
-                    + city_list_size(aplayer->cities) + 1);
-        }
-      } players_iterate_alive_end;
-
-      /* For some number of turns we will be receiving bulbs for free
-       * Bulbs should be amortized properly for each turn.
-       * We use formula for the sum of geometric series:
-       */
-      value = bulbs * (1.0 - pow(1.0 - (1.0 / MORT), turns)) * MORT;
+      /* adv->stats.parasite_bulbs is pre-computed once per phase in
+       * adv_data_phase_init() — avoids O(P) players_iterate per city. */
+      value = adv->stats.parasite_bulbs
+              * (1.0 - pow(1.0 - (1.0 / MORT), turns)) * MORT;
 
       value = value  * (100 - game.server.freecost)
         * (nplayers - amount) / (nplayers * amount * 100);
@@ -345,17 +333,9 @@ adv_want dai_effect_value(struct player *pplayer,
     }
     break;
   case EFT_HAVE_CONTACTS:
-    {
-      int new_contacts = 0;
-
-      players_iterate_alive(theother) {
-        if (player_diplstate_get(pplayer, theother)->contact_turns_left <= 0) {
-          new_contacts++;
-        }
-      } players_iterate_alive_end;
-
-      v += 30 * new_contacts;
-    }
+    /* adv->stats.new_contacts is pre-computed once per phase in
+     * adv_data_phase_init() — avoids O(P) players_iterate per city. */
+    v += 30 * adv->stats.new_contacts;
     break;
   case EFT_HAVE_EMBASSIES:
     v += 2 * nplayers;
@@ -562,16 +542,12 @@ adv_want dai_effect_value(struct player *pplayer,
     break;
   case EFT_GAIN_AI_LOVE:
     {
-      /* has_handicap() result is pplayer-constant — hoist out of the loop. */
+      /* Both has_handicap() and n_ai are pplayer-constant.
+       * adv->stats.n_ai is pre-computed once per phase in adv_data_phase_init().
+       * Eliminates O(P) players_iterate per city×improvement call. */
       int per_ai = has_handicap(pplayer, H_DEFENSIVE) ? amount / 10 : amount / 20;
-      int n_ai = 0;
 
-      players_iterate(aplayer) {
-        if (is_ai(aplayer)) {
-          n_ai++;
-        }
-      } players_iterate_end;
-      v += n_ai * per_ai;
+      v += adv->stats.n_ai * per_ai;
     }
     break;
   case EFT_UPGRADE_PRICE_PCT:

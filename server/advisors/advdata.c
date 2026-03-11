@@ -466,6 +466,29 @@ bool adv_data_phase_init(struct player *pplayer, bool is_new_phase)
   } city_list_iterate_end;
   adv->stats.average_production /= MAX(1, city_list_size(pplayer->cities));
 
+  /* Pre-compute per-player scalars used by dai_effect_value() to avoid
+   * O(P) players_iterate calls on every city×improvement×effect evaluation.
+   * Three effects (EFT_GAIN_AI_LOVE, EFT_HAVE_CONTACTS, EFT_TECH_PARASITE)
+   * each ran a full players_iterate per call; now they read O(1) from stats. */
+  adv->stats.n_ai = 0;
+  adv->stats.new_contacts = 0;
+  adv->stats.parasite_bulbs = 0;
+  players_iterate_alive(aplayer) {
+    if (is_ai(aplayer)) {
+      adv->stats.n_ai++;
+    }
+    if (aplayer != pplayer) {
+      if (player_diplstate_get(pplayer, aplayer)->contact_turns_left <= 0) {
+        adv->stats.new_contacts++;
+      }
+      if (!game.info.team_pooled_research
+          || !players_on_same_team(aplayer, pplayer)) {
+        adv->stats.parasite_bulbs += (aplayer->server.bulbs_last_turn
+                                      + city_list_size(aplayer->cities) + 1);
+      }
+    }
+  } players_iterate_alive_end;
+
   /*** Diplomacy ***/
 
   /* Pre-build list of pplayer's war enemies to avoid O(P²) inner iterate.
