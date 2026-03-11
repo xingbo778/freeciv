@@ -48,6 +48,10 @@
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
 #endif
+#ifdef __linux__
+#include <sys/epoll.h>
+#define HAVE_EPOLL
+#endif /* __linux__ */
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
@@ -95,6 +99,9 @@ static struct connection connections[MAX_NUM_CONNECTIONS];
 
 static int *listen_socks;
 static int listen_count;
+#ifdef HAVE_EPOLL
+static int epfd = -1; /* epoll file descriptor; -1 if not initialized */
+#endif /* HAVE_EPOLL */
 static int socklan;
 
 #if defined(__VMS)
@@ -243,6 +250,12 @@ static void close_connection(struct connection *pconn)
   pconn->playing = NULL;
   pconn->client_gui = GUI_STUB;
   pconn->access_level = ALLOW_NONE;
+#ifdef HAVE_EPOLL
+  if (epfd >= 0 && pconn->used) {
+    /* Remove from epoll before fc_closesocket() which invalidates the fd */
+    epoll_ctl(epfd, EPOLL_CTL_DEL, pconn->sock, NULL);
+  }
+#endif /* HAVE_EPOLL */
   connection_common_close(pconn);
 
   send_updated_vote_totals(NULL);
@@ -687,45 +700,90 @@ enum server_events server_sniff_all_input(void)
       return S_E_END_OF_TURN_TIMEOUT;
     }
 
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
-
-    FC_FD_ZERO(&readfs);
-    FC_FD_ZERO(&writefs);
-    FC_FD_ZERO(&exceptfs);
-
-    if (!no_input) {
-#ifdef FREECIV_SOCKET_ZERO_NOT_STDIN
-      fc_init_console();
-#else /* FREECIV_SOCKET_ZERO_NOT_STDIN */
-#   if !defined(__VMS)
-      FD_SET(0, &readfs);
-#   endif /* VMS */
-#endif /* FREECIV_SOCKET_ZERO_NOT_STDIN */
-    }
-
-    max_desc = 0;
-    for (i = 0; i < listen_count; i++) {
-      FD_SET(listen_socks[i], &readfs);
-      FD_SET(listen_socks[i], &exceptfs);
-      max_desc = MAX(max_desc, listen_socks[i]);
-    }
-
-    for (i = 0; i < MAX_NUM_CONNECTIONS; i++) {
-      struct connection *pconn = connections + i;
-
-      if (pconn->used && !pconn->server.is_closing) {
-        FD_SET(pconn->sock, &readfs);
-        if (0 < pconn->send_buffer->ndata) {
-          FD_SET(pconn->sock, &writefs);
-        }
-        FD_SET(pconn->sock, &exceptfs);
-        max_desc = MAX(pconn->sock, max_desc);
-      }
-    }
     con_prompt_off();    /* output doesn't generate a new prompt */
 
-    selret = fc_select(max_desc + 1, &readfs, &writefs, &exceptfs, &tv);
+#ifdef HAVE_EPOLL
+    if (epfd >= 0) {
+      struct epoll_event ev;
+      struct epoll_event events[MAX_NUM_CONNECTIONS + 8];
+      int nfds, ei;
+
+      /* Update EPOLLOUT for connections with pending write data */
+      for (i = 0; i < MAX_NUM_CONNECTIONS; i++) {
+        struct connection *pconn = connections + i;
+
+        if (pconn->used && !pconn->server.is_closing) {
+          ev.events = EPOLLIN | EPOLLERR;
+          if (0 < pconn->send_buffer->ndata) {
+            ev.events |= EPOLLOUT;
+          }
+          ev.data.fd = pconn->sock;
+          epoll_ctl(epfd, EPOLL_CTL_MOD, pconn->sock, &ev);
+        }
+      }
+
+      nfds = epoll_wait(epfd, events, MAX_NUM_CONNECTIONS + 8,
+                        1000 /* milliseconds */);
+
+      FC_FD_ZERO(&readfs);
+      FC_FD_ZERO(&writefs);
+      FC_FD_ZERO(&exceptfs);
+      for (ei = 0; ei < nfds; ei++) {
+        int fd = events[ei].data.fd;
+
+        if (events[ei].events & (EPOLLIN | EPOLLHUP)) {
+          FD_SET(fd, &readfs);
+        }
+        if (events[ei].events & EPOLLOUT) {
+          FD_SET(fd, &writefs);
+        }
+        if (events[ei].events & EPOLLERR) {
+          FD_SET(fd, &exceptfs);
+        }
+      }
+      selret = nfds;
+    } else
+#endif /* HAVE_EPOLL */
+    {
+      tv.tv_sec = 1;
+      tv.tv_usec = 0;
+
+      FC_FD_ZERO(&readfs);
+      FC_FD_ZERO(&writefs);
+      FC_FD_ZERO(&exceptfs);
+
+      if (!no_input) {
+#ifdef FREECIV_SOCKET_ZERO_NOT_STDIN
+        fc_init_console();
+#else /* FREECIV_SOCKET_ZERO_NOT_STDIN */
+#   if !defined(__VMS)
+        FD_SET(0, &readfs);
+#   endif /* VMS */
+#endif /* FREECIV_SOCKET_ZERO_NOT_STDIN */
+      }
+
+      max_desc = 0;
+      for (i = 0; i < listen_count; i++) {
+        FD_SET(listen_socks[i], &readfs);
+        FD_SET(listen_socks[i], &exceptfs);
+        max_desc = MAX(max_desc, listen_socks[i]);
+      }
+
+      for (i = 0; i < MAX_NUM_CONNECTIONS; i++) {
+        struct connection *pconn = connections + i;
+
+        if (pconn->used && !pconn->server.is_closing) {
+          FD_SET(pconn->sock, &readfs);
+          if (0 < pconn->send_buffer->ndata) {
+            FD_SET(pconn->sock, &writefs);
+          }
+          FD_SET(pconn->sock, &exceptfs);
+          max_desc = MAX(pconn->sock, max_desc);
+        }
+      }
+
+      selret = fc_select(max_desc + 1, &readfs, &writefs, &exceptfs, &tv);
+    }
     if (selret == 0) {
       /* timeout */
       call_ai_refresh();
@@ -1082,6 +1140,18 @@ int server_make_connection(int new_sock, const char *client_addr,
     if (!pconn->used) {
       connection_common_init(pconn);
       pconn->sock = new_sock;
+#ifdef HAVE_EPOLL
+      if (epfd >= 0) {
+        struct epoll_event ev;
+
+        ev.events = EPOLLIN | EPOLLERR;
+        ev.data.fd = new_sock;
+        if (epoll_ctl(epfd, EPOLL_CTL_ADD, new_sock, &ev) < 0) {
+          log_error("epoll_ctl ADD new connection (fd=%d) failed: %s",
+                    new_sock, fc_strerror(fc_get_errno()));
+        }
+      }
+#endif /* HAVE_EPOLL */
       pconn->observer = FALSE;
       pconn->playing = NULL;
       pconn->capability[0] = '\0';
@@ -1263,6 +1333,28 @@ int server_open_socket(void)
   }
 
   fc_sockaddr_list_destroy(list);
+
+#ifdef HAVE_EPOLL
+  {
+    int ei;
+    struct epoll_event ev;
+
+    epfd = epoll_create1(EPOLL_CLOEXEC);
+    if (epfd < 0) {
+      log_error("epoll_create1() failed: %s", fc_strerror(fc_get_errno()));
+    } else {
+      for (ei = 0; ei < listen_count; ei++) {
+        ev.events = EPOLLIN | EPOLLERR;
+        ev.data.fd = listen_socks[ei];
+        if (epoll_ctl(epfd, EPOLL_CTL_ADD, listen_socks[ei], &ev) < 0) {
+          log_error("epoll_ctl ADD listen_sock failed: %s",
+                    fc_strerror(fc_get_errno()));
+        }
+      }
+      log_verbose("epoll I/O polling initialized (fd=%d)", epfd);
+    }
+  }
+#endif /* HAVE_EPOLL */
 
   connections_set_close_callback(server_conn_close_callback);
 
