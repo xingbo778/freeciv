@@ -1982,6 +1982,7 @@ void dai_build_adv_init(struct ai_type *ait, struct player *pplayer)
 void dai_build_adv_adjust(struct ai_type *ait, struct player *pplayer,
                           struct city *wonder_city)
 {
+  struct adv_data *adv = adv_data_get(pplayer, nullptr);
   /* adv->stats.nplayers is pre-computed in adv_data_phase_init() as
    * normal_player_count() minus same-team members — eliminates an O(P)
    * players_iterate here (and identically in dai_tech_effect_values()). */
