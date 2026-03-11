@@ -1019,6 +1019,11 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
    * pplayer and player_by_number(i).  Pre-computed once here to replace
    * the O(P) inner players_iterate in the love-calculation loop below. */
   int shared_enemy_count[player_slot_count()];
+  /* units_in_our_territory[i] = number of visible units owned by
+   * player_by_number(i) that are standing on tiles owned by pplayer.
+   * Pre-computed in one O(U_total) pass to replace P separate O(U) calls
+   * to player_in_territory() inside the love loop. */
+  int units_in_our_territory[player_slot_count()];
   int best_desire = 0;
   struct player *best_target = nullptr;
 
@@ -1046,6 +1051,23 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
         }
       } players_iterate_alive_end;
     }
+  } players_iterate_alive_end;
+
+  /* Pre-compute units_in_our_territory for the love loop.
+   * Iterate all units of all alive players in one pass, counting those
+   * visible to pplayer that stand on pplayer's own territory.  Replaces
+   * P separate O(U) calls to player_in_territory() inside the love loop. */
+  memset(units_in_our_territory, 0, sizeof(units_in_our_territory));
+  players_iterate_alive(aplayer) {
+    if (aplayer == pplayer) {
+      continue;
+    }
+    unit_list_iterate(aplayer->units, punit) {
+      if (tile_owner(unit_tile(punit)) == pplayer
+          && can_player_see_unit(pplayer, punit)) {
+        units_in_our_territory[player_index(aplayer)]++;
+      }
+    } unit_list_iterate_end;
   } players_iterate_alive_end;
 
   /* Calculate our desires, and find desired war target */
@@ -1119,8 +1141,9 @@ void dai_diplomacy_begin_new_phase(struct ai_type *ait, struct player *pplayer)
     amount = 0;
 
     /* Reduce love due to units in our territory.
-     * AI is so naive, that we have to count it even if players are allied */
-    pit = player_in_territory(pplayer, aplayer) * (MAX_AI_LOVE / 200);
+     * AI is so naive, that we have to count it even if players are allied.
+     * units_in_our_territory[player_index(aplayer)] was pre-computed above. */
+    pit = units_in_our_territory[player_index(aplayer)] * (MAX_AI_LOVE / 200);
     amount -= MIN(pit,
                   ai->diplomacy.love_incr
                   * ((adip->is_allied_with_enemy != nullptr) + 1));
