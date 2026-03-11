@@ -253,7 +253,8 @@ static void dai_barbarian_choose_build(struct player *pplayer,
 **************************************************************************/
 static void dai_city_choose_build(struct ai_type *ait,
                                   struct player *pplayer,
-                                  struct city *pcity)
+                                  struct city *pcity,
+                                  bool war_footing)
 {
   struct adv_choice *newchoice;
   struct adv_data *adv = adv_data_get(pplayer, nullptr);
@@ -270,9 +271,11 @@ static void dai_city_choose_build(struct ai_type *ait,
   if (is_barbarian(pplayer)) {
     dai_barbarian_choose_build(pplayer, pcity, &(city_data->choice));
   } else {
+    /* war_footing is pre-computed by dai_manage_cities() once per player per
+     * turn and passed in to avoid an O(P) dai_on_war_footing() call per city. */
     if ((city_data->choice.want < DAI_WANT_MILITARY_EMERGENCY
          || city_data->urgency == 0)
-        && !(dai_on_war_footing(ait, pplayer) && city_data->choice.want > 0
+        && !(war_footing && city_data->choice.want > 0
              && pcity->id != adv->wonder_city)) {
       newchoice = domestic_advisor_choose_build(ait, pplayer, pcity);
       adv_choice_copy(&(city_data->choice),
@@ -918,6 +921,10 @@ void dai_manage_cities(struct ai_type *ait, struct player *pplayer)
 
   /* Initialize the infrastructure cache, which is used shortly. */
   initialize_infrastructure_cache(pplayer);
+  /* Pre-compute war_footing once: dai_on_war_footing() is O(P) and was
+   * previously called once per city in both city loops below (O(2×C×P)).
+   * Hoisting to here reduces total cost to O(P + 2×C). */
+  bool war_footing = dai_on_war_footing(ait, pplayer);
   city_list_iterate(pplayer->cities, pcity) {
     struct ai_city *city_data = def_ai_city_data(pcity, ait);
     struct adv_choice *choice;
@@ -931,7 +938,7 @@ void dai_manage_cities(struct ai_type *ait, struct player *pplayer)
       adv_free_choice(choice);
       TIMING_LOG(AIT_CITY_MILITARY, TIMER_STOP);
     }
-    if (dai_on_war_footing(ait, pplayer) && city_data->choice.want > 0) {
+    if (war_footing && city_data->choice.want > 0) {
       city_data->worker_want = 0;
       city_data->founder_want = 0;
       city_data->founder_turn = game.info.turn; /* Do not consider zero we set
@@ -966,7 +973,7 @@ void dai_manage_cities(struct ai_type *ait, struct player *pplayer)
   dai_auto_settler_reset(ait, pplayer);
 
   city_list_iterate(pplayer->cities, pcity) {
-    dai_city_choose_build(ait, pplayer, pcity);
+    dai_city_choose_build(ait, pplayer, pcity, war_footing);
 
     /* Initialize for next turn */
     def_ai_city_data(pcity, ait)->choice.want = -1;
