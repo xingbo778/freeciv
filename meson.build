@@ -1582,43 +1582,12 @@ common_lib = library('freeciv',
 
 if server_type != 'disabled' or get_option('tools').length() > 0
 
-if server_type == 'disabled'
-
+# XBWorld: all players are Python agents — stub AI only (no DAI compiled)
 ais = static_library('fc_ai',
   'ai/stub/stubai.c',
   sources: [verhdr],
   include_directories: [server_inc, include_directories('ai/default')]
   )
-
-else
-
-ais = static_library('fc_ai',
-  aisrc,
-  'ai/default/daiair.c',
-  'ai/default/daiactions.c',
-  'ai/default/daicity.c',
-  'ai/default/daidata.c',
-  'ai/default/daidiplomacy.c',
-  'ai/default/daidiplomat.c',
-  'ai/default/daidomestic.c',
-  'ai/default/daieffects.c',
-  'ai/default/daiferry.c',
-  'ai/default/daiguard.c',
-  'ai/default/daihand.c',
-  'ai/default/daihunter.c',
-  'ai/default/dailog.c',
-  'ai/default/daimilitary.c',
-  'ai/default/daiparadrop.c',
-  'ai/default/daiplayer.c',
-  'ai/default/daisettler.c',
-  'ai/default/daitech.c',
-  'ai/default/daitools.c',
-  'ai/default/daiunit.c',
-  sources: [verhdr, specenum],
-  include_directories: [server_inc, include_directories('ai/default')]
-  )
-
-endif
 
 server_lib = static_library('fc_server',
   'ai/aitraits.c',
