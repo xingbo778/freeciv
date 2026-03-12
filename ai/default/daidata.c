@@ -37,7 +37,7 @@
 #include "daidiplomacy.h"
 #include "daieffects.h"
 #include "daiferry.h"
-#include "srv_log.h"    /* for UNIT_LOG macro */
+#include "server/srv_log.h"    /* for UNIT_LOG macro */
 #include "daiplayer.h"
 #include "daisettler.h"
 #include "daiunit.h"
