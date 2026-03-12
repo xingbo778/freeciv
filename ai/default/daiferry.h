@@ -19,6 +19,14 @@
 /* common */
 #include "fc_types.h"
 
+/* Ferry state constants - needed by daidata.c */
+#define FERRY_AVAILABLE     (-1)  /* Boat is looking for a passenger */
+#define FERRY_ABANDON_BOSS  (-2)  /* Passenger is assigned for boat, but boat might take another passenger. */
+#define FERRY_WANTED       (-1)   /* Needs a boat */
+#define FERRY_NONE          0     /* Has no boat and does not need one */
+
+
+
 struct pf_path;
 struct pft_amphibious;
 
